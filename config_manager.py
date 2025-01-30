@@ -55,7 +55,6 @@ class ConfigManager:
         width = self.config.getint('Appearance', 'window_width', fallback=300)
         height = self.config.getint('Appearance', 'window_height', fallback=300)
         return width, height
-        self.save_config()
 
     def set_window_size(self, width: int, height: int) -> None:
         if 'Appearance' not in self.config:
