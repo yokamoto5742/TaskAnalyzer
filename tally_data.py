@@ -1,4 +1,5 @@
 import polars as pl
+import pandas as pd
 from openpyxl import load_workbook
 from datetime import datetime
 from pathlib import Path
@@ -99,20 +100,16 @@ def save_to_csv(summary, monthly, daily, output_dir):
     """
     分析結果をCSVファイルとして保存する
     """
+    import pandas as pd
+
     # 出力ディレクトリの作成
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # BOMを手動で書き込み
-    for (df, filename) in [
-        (summary, 'summary_by_task.csv'),
-        (monthly, 'summary_by_month.csv'),
-        (daily, 'summary_by_date_and_task.csv')
-    ]:
-        output_file = output_dir / filename
-        with open(output_file, 'wb') as f:
-            f.write(b'\xef\xbb\xbf')  # UTF-8 BOM
-            f.write(df.write_csv().encode('utf-8'))
+    # Polars DataFrameをpandas DataFrameに変換して保存
+    summary.to_pandas().to_csv(output_dir / 'summary_by_task.csv', encoding='utf-8-sig', index=False)
+    monthly.to_pandas().to_csv(output_dir / 'summary_by_month.csv', encoding='utf-8-sig', index=False)
+    daily.to_pandas().to_csv(output_dir / 'summary_by_date_and_task.csv', encoding='utf-8-sig', index=False)
 
     print(f"CSVファイルを {output_dir} に保存しました")
 
@@ -120,7 +117,7 @@ def save_to_csv(summary, monthly, daily, output_dir):
 def main():
     # 入力ファイルと出力ディレクトリのパスを設定
     file_path = r"C:\Shinseikai\playground\willdolist.xlsx"  # Excelファイルのパス
-    output_dir = r"C:\Shinseikai\playground\analysis_output"  # 出力ディレクトリ
+    output_dir = "analysis_output"  # 出力ディレクトリ
 
     # 分析の実行
     summary, monthly, daily = analyze_workbook(file_path)

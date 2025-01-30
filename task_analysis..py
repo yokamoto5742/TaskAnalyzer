@@ -13,7 +13,7 @@ def create_sheet_from_df(wb, sheet_name, df, start_row=1):
     """DataFrameをExcelシートに変換して書き込む"""
     ws = wb.create_sheet(title=sheet_name)
 
-    # DataFrameの行をシートに書き込み
+    # DataFrameの行をシートに書き込む
     for r_idx, row in enumerate(dataframe_to_rows(df, index=False), start_row):
         for c_idx, value in enumerate(row, 1):
             cell = ws.cell(row=r_idx, column=c_idx, value=value)
@@ -134,6 +134,6 @@ def analyze_tasks(file_path: str, output_dir: str) -> None:
     os.system(f"start excel {excel_file}")
 
 if __name__ == "__main__":
-    file_path = r"C:\Shinseikai\playground\WILLDOリストまとめ.csv"
-    output_dir = r"C:\Shinseikai\playground\analysis_output"
+    file_path = r"C:\Users\yokam\PycharmProjects\TaskAnalyzer\analysis_output\summary_by_task.csv"
+    output_dir = "analysis_output"
     analyze_tasks(file_path, output_dir)
