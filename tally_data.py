@@ -100,7 +100,6 @@ def save_to_csv(summary, monthly, daily, output_dir):
     """
     分析結果をCSVファイルとして保存する
     """
-    import pandas as pd
 
     # 出力ディレクトリの作成
     output_dir = Path(output_dir)

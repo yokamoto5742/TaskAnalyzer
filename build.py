@@ -8,10 +8,11 @@ def build_executable():
 
     subprocess.run([
         "pyinstaller",
-        "--name=app",
+        "--name=GroqWhisper",
         "--windowed",
-        "--icon=assets/app.ico",
-        "--add-data", "config.ini;.",
+        "--icon=assets/GroqWhisper.ico",
+        "--add-data", "config.ini:.",
+        "--add-data", "replacements.txt:.",
         "main.py"
     ])
 
