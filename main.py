@@ -16,6 +16,7 @@ def process_excel_sheet(wb, sheet_name, date):
 
         if content and time and time != '*':  # 両方のセルに値があり、時間が'*'でない場合のみ処理
             try:
+                content = content.split()[0] if content else content # スペース以降の文字列を削除
                 minutes = float(time)
                 tasks.append({
                     'date': date,
@@ -31,10 +32,9 @@ def process_excel_sheet(wb, sheet_name, date):
 def analyze_workbook(file_path):
     wb = load_workbook(filename=file_path)
 
-    # 全シートのデータを収集
     all_tasks = []
     for sheet_name in wb.sheetnames:
-        # シート一覧は処理をスキップ
+
         if sheet_name == 'シート一覧':
             continue
 
@@ -55,10 +55,8 @@ def analyze_workbook(file_path):
             print(f"シート {sheet_name} の日付の解析でエラー: {e}")
             continue
 
-    # Polarsデータフレームを作成
     df = pl.DataFrame(all_tasks)
 
-    # 業務内容ごとの集計
     summary = df.group_by('content').agg([
         pl.col('minutes').sum().alias('total_minutes'),
         pl.len().alias('frequency')
