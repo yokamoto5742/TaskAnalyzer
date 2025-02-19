@@ -93,45 +93,36 @@ def analyze_tasks(df, template_path, output_dir, start_date, end_date):
         .sort('total_minutes', descending=True)
     )
 
-    # テンプレートファイルを読み込む
     wb = load_workbook(filename=template_path)
 
-    # クラーク業務シートにデータを書き込む
     clerk_sheet = wb['クラーク業務']
     for i, row in enumerate(clerk_tasks.to_pandas().values, start=2):
         for j, value in enumerate(row, start=1):
             clerk_sheet.cell(row=i, column=j, value=value)
 
-    # クラーク以外業務シートにデータを書き込む
     non_clerk_sheet = wb['クラーク以外業務']
     for i, row in enumerate(non_clerk_tasks.to_pandas().values, start=2):
         for j, value in enumerate(row, start=1):
             non_clerk_sheet.cell(row=i, column=j, value=value)
 
-    # 出力ファイル名の設定とディレクトリの作成
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     output_filename = f'WILLDOリストまとめ{start_date}_{end_date}.xlsx'
     output_file_path = output_path / output_filename
 
-    # ファイルの保存
     wb.save(output_file_path)
     print(f"\n集計結果を保存しました: {output_file_path}")
 
-    # Excelファイルを開く
     os.system(f'start excel "{output_file_path}"')
 
 
 def main():
     try:
-        # 設定の読み込み
         config = load_config()
         paths_config = config['PATHS']
 
-        # Excelファイルの分析
         df, start_date, end_date = analyze_workbook(paths_config['input_file_path'])
 
-        # 結果の出力
         analyze_tasks(
             df,
             paths_config['template_path'],
