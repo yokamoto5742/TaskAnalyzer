@@ -16,6 +16,7 @@ class TaskAnalyzer:
         sheet = wb[sheet_name]
         tasks = []
         daily_tasks = []
+        communication_tasks = []
 
         # 通常の業務データの抽出
         start_row = self.config.getint('Analysis', 'start_row')
@@ -57,12 +58,37 @@ class TaskAnalyzer:
                 except (ValueError, TypeError) as e:
                     print(f"デイリータスクの時間の変換でエラー: {e}")
 
-        return tasks, daily_tasks
+        comm_start_row = self.config.getint('Analysis', 'communication_start_row')
+        comm_end_row = self.config.getint('Analysis', 'communication_end_row')
+
+        for row in range(comm_start_row, comm_end_row + 1):
+            content = sheet[f'B{row}'].value
+            time = sheet[f'C{row}'].value
+
+            if content and time and time != '*':
+                try:
+                    # 名前を抽出 (括弧内の文字列を取得)
+                    import re
+                    name_match = re.search(r'\((.*?)\)', content)
+                    if name_match:
+                        name = name_match.group(1)
+                        minutes = float(time)
+                        communication_tasks.append({
+                            'date': date,
+                            'name': name,
+                            'content': content,
+                            'minutes': minutes
+                        })
+                except (ValueError, TypeError) as e:
+                    print(f"コミュニケーションデータの時間の変換でエラー: {e}")
+
+        return tasks, daily_tasks, communication_tasks
 
     def analyze_workbook(self, file_path, start_date, end_date):
         wb = load_workbook(filename=file_path)
         all_tasks = []
-        all_daily_tasks = []  # デイリータスク用のリストを追加
+        all_daily_tasks = []
+        all_communication_tasks = []  # 追加
         dates = []
 
         for sheet_name in wb.sheetnames:
@@ -79,9 +105,10 @@ class TaskAnalyzer:
                     sheet_date = datetime.strptime(str(date_cell), '%Y年%m月%d日')
 
                 if start_date <= sheet_date <= end_date:
-                    tasks, daily_tasks = self.process_excel_sheet(wb, sheet_name, sheet_date)  # daily_tasksも受け取る
+                    tasks, daily_tasks, comm_tasks = self.process_excel_sheet(wb, sheet_name, sheet_date)
                     all_tasks.extend(tasks)
-                    all_daily_tasks.extend(daily_tasks)  # デイリータスクを追加
+                    all_daily_tasks.extend(daily_tasks)
+                    all_communication_tasks.extend(comm_tasks)  # 追加
                     dates.append(sheet_date)
 
             except (ValueError, TypeError) as e:
@@ -92,15 +119,15 @@ class TaskAnalyzer:
             raise ValueError("有効なデータが見つかりませんでした。")
 
         df = pl.DataFrame(all_tasks)
-        daily_df = pl.DataFrame(all_daily_tasks)  # デイリータスク用のDataFrame
+        daily_df = pl.DataFrame(all_daily_tasks)
+        comm_df = pl.DataFrame(all_communication_tasks)  # 追加
         start_date = min(dates).strftime("%Y%m%d")
         end_date = max(dates).strftime("%Y%m%d")
 
-        return df, daily_df, start_date, end_date  # daily_dfを追加
+        return df, daily_df, comm_df, start_date, end_date
 
-    def analyze_tasks(self, df, daily_df, template_path, output_dir, start_date, end_date):
+    def analyze_tasks(self, df, daily_df, comm_df, template_path, output_dir, start_date, end_date):
         """業務データの分析と結果の出力"""
-        # 既存の集計処理
         clerk_tasks = (
             df.filter(pl.col('content').str.contains('クラーク業務'))
             .group_by('content')
@@ -123,7 +150,6 @@ class TaskAnalyzer:
             .sort('total_minutes', descending=True)
         )
 
-        # デイリータスクの集計を追加
         daily_tasks = (
             daily_df.group_by('content')
             .agg([
@@ -134,14 +160,25 @@ class TaskAnalyzer:
             .sort('total_minutes', descending=True)
         )
 
-        self._save_results(clerk_tasks, non_clerk_tasks, daily_tasks, template_path, output_dir, start_date, end_date)
+        communication_summary = (
+            comm_df.group_by('name')
+            .agg([
+                pl.col('minutes').sum().alias('total_minutes'),
+                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
+                pl.col('minutes').count().alias('frequency')
+            ])
+            .sort('total_minutes', descending=True)
+        )
+
+        self._save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_summary,
+                           template_path, output_dir, start_date, end_date)
 
     @staticmethod
-    def _save_results(clerk_tasks, non_clerk_tasks, daily_tasks, template_path, output_dir, start_date, end_date):
+    def _save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_summary,
+                           template_path, output_dir, start_date, end_date):
         """分析結果をExcelファイルに保存"""
         wb = load_workbook(filename=template_path)
 
-        # クラーク業務の結果を保存
         clerk_sheet = wb['クラーク業務']
         for i, row in enumerate(clerk_tasks.to_pandas().values, start=2):
             for j, value in enumerate(row, start=1):
@@ -153,13 +190,16 @@ class TaskAnalyzer:
             for j, value in enumerate(row, start=1):
                 non_clerk_sheet.cell(row=i, column=j, value=value)
 
-        # デイリータスクの結果を保存
         daily_sheet = wb['デイリータスク']
         for i, row in enumerate(daily_tasks.to_pandas().values, start=2):
             for j, value in enumerate(row, start=1):
                 daily_sheet.cell(row=i, column=j, value=value)
 
-        # 結果を保存して開く
+        comm_sheet = wb['コミュニケーション']
+        for i, row in enumerate(communication_summary.to_pandas().values, start=2):
+            for j, value in enumerate(row, start=1):
+                comm_sheet.cell(row=i, column=j, value=value)
+
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         start_date_str = datetime.strftime(datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S'), '%Y%m%d')
@@ -176,7 +216,7 @@ class TaskAnalyzer:
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
-            df, daily_df, start_date_fmt, end_date_fmt = self.analyze_workbook(
+            df, daily_df, comm_df, start_date_fmt, end_date_fmt = self.analyze_workbook(  # comm_dfを追加
                 self.paths_config['input_file_path'],
                 start_date,
                 end_date
@@ -185,6 +225,7 @@ class TaskAnalyzer:
             self.analyze_tasks(
                 df,
                 daily_df,
+                comm_df,  # comm_dfを追加
                 self.paths_config['template_path'],
                 self.paths_config['output_dir'],
                 start_date,
