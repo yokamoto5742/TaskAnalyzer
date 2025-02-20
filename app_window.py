@@ -93,7 +93,9 @@ class TaskAnalyzerGUI:
             self.root.update()
 
             try:
-                success = analyzer.run_analysis()
+                start_date_str = start_date.strftime('%Y-%m-%d')
+                end_date_str = end_date.strftime('%Y-%m-%d')
+                success = analyzer.run_analysis(start_date_str, end_date_str)
                 if success:
                     messagebox.showinfo("完了", "分析が完了しました。")
                 else:

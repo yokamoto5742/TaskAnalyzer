@@ -35,7 +35,7 @@ class TaskAnalyzer:
 
         return tasks
 
-    def analyze_workbook(self, file_path):
+    def analyze_workbook(self, file_path, start_date, end_date):
         """Excelワークブックの分析"""
         wb = load_workbook(filename=file_path)
         all_tasks = []
@@ -50,14 +50,14 @@ class TaskAnalyzer:
 
             try:
                 if isinstance(date_cell, datetime):
-                    date = date_cell
+                    sheet_date = date_cell
                 else:
-                    date = datetime.strptime(str(date_cell), '%Y年%m月%d日')
+                    sheet_date = datetime.strptime(str(date_cell), '%Y年%m月%d日')
 
-                if datetime(2025, 1, 1) <= date <= datetime(2025, 12, 31):
-                    tasks = self.process_excel_sheet(wb, sheet_name, date)
+                if start_date <= sheet_date <= end_date:  # 日付範囲のチェックを修正
+                    tasks = self.process_excel_sheet(wb, sheet_name, sheet_date)
                     all_tasks.extend(tasks)
-                    dates.append(date)
+                    dates.append(sheet_date)
 
             except (ValueError, TypeError) as e:
                 print(f"シート {sheet_name} の日付の解析でエラー: {e}")
@@ -120,17 +120,25 @@ class TaskAnalyzer:
         # 結果を保存して開く
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
-        output_filename = f'WILLDOリストまとめ{start_date}_{end_date}.xlsx'
+        start_date_str = datetime.strftime(datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S'), '%Y%m%d')
+        end_date_str = datetime.strftime(datetime.strptime(str(end_date), '%Y-%m-%d %H:%M:%S'), '%Y%m%d')
+        output_filename = f'WILLDOリストまとめ{start_date_str}_{end_date_str}.xlsx'
         output_file_path = output_path / output_filename
 
         wb.save(output_file_path)
         print(f"\n集計結果を保存しました: {output_file_path}")
         os.system(f'start excel "{output_file_path}"')
 
-    def run_analysis(self):
+    def run_analysis(self, start_date_str, end_date_str):
         """分析処理の実行"""
         try:
-            df, start_date, end_date = self.analyze_workbook(self.paths_config['input_file_path'])
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+            df, start_date_fmt, end_date_fmt = self.analyze_workbook(
+                self.paths_config['input_file_path'],
+                start_date,
+                end_date
+            )
 
             self.analyze_tasks(
                 df,
