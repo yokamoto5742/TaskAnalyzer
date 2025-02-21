@@ -84,11 +84,49 @@ class TaskAnalyzer:
 
         return tasks, daily_tasks, communication_tasks
 
+    def process_excel_sheet_all_items(self, wb, sheet_name, date):
+        """Excelシートから全ての項目（B4:C43）のデータを抽出"""
+        sheet = wb[sheet_name]
+        all_items = []
+
+        start_row = self.config.getint('Analysis', 'start_row')
+        end_row = self.config.getint('Analysis', 'daily_task_end_row')
+
+        for row in range(start_row, end_row + 1):
+            content = sheet[f'B{row}'].value
+            time = sheet[f'C{row}'].value
+
+            if content and time and time != '*':
+                try:
+                    # 数値に変換できる場合のみ処理する
+                    if isinstance(time, (int, float)):
+                        minutes = float(time)
+                    elif isinstance(time, str):
+                        try:
+                            minutes = float(time)
+                        except ValueError:
+                            continue
+                    else:
+                        continue
+
+                    content = content.split()[0] if content else content
+                    all_items.append({
+                        'date': date,
+                        'content': content,
+                        'minutes': minutes,
+                        'row': row
+                    })
+                except (ValueError, TypeError) as e:
+                    print(f"時間の変換でエラー（行 {row}）: {e}")
+
+        return all_items
+
     def analyze_workbook(self, file_path, start_date, end_date):
         wb = load_workbook(filename=file_path)
         all_tasks = []
         all_daily_tasks = []
-        all_communication_tasks = []  # 追加
+        all_communication_tasks = []
+        all_items_tasks = []  # 全項目を追加
         dates = []
 
         for sheet_name in wb.sheetnames:
@@ -106,9 +144,12 @@ class TaskAnalyzer:
 
                 if start_date <= sheet_date <= end_date:
                     tasks, daily_tasks, comm_tasks = self.process_excel_sheet(wb, sheet_name, sheet_date)
+                    all_items = self.process_excel_sheet_all_items(wb, sheet_name, sheet_date)  # 全項目処理を呼び出し
+
                     all_tasks.extend(tasks)
                     all_daily_tasks.extend(daily_tasks)
-                    all_communication_tasks.extend(comm_tasks)  # 追加
+                    all_communication_tasks.extend(comm_tasks)
+                    all_items_tasks.extend(all_items)  # 全項目を追加
                     dates.append(sheet_date)
 
             except (ValueError, TypeError) as e:
@@ -120,13 +161,15 @@ class TaskAnalyzer:
 
         df = pl.DataFrame(all_tasks)
         daily_df = pl.DataFrame(all_daily_tasks)
-        comm_df = pl.DataFrame(all_communication_tasks)  # 追加
+        comm_df = pl.DataFrame(all_communication_tasks)
+        all_items_df = pl.DataFrame(all_items_tasks)  # 全項目のDataFrameを作成
+
         start_date = min(dates).strftime("%Y%m%d")
         end_date = max(dates).strftime("%Y%m%d")
 
-        return df, daily_df, comm_df, start_date, end_date
+        return df, daily_df, comm_df, all_items_df, start_date, end_date
 
-    def analyze_tasks(self, df, daily_df, comm_df, template_path, output_dir, start_date, end_date):
+    def analyze_tasks(self, df, daily_df, comm_df, all_items_df, template_path, output_dir, start_date, end_date):
         """業務データの分析と結果の出力"""
         clerk_tasks = (
             df.filter(pl.col('content').str.contains('クラーク業務'))
@@ -170,12 +213,23 @@ class TaskAnalyzer:
             .sort('total_minutes', descending=True)
         )
 
+        # 全項目の分析を追加
+        all_items_summary = (
+            all_items_df.group_by('content')
+            .agg([
+                pl.col('minutes').sum().alias('total_minutes'),
+                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
+                pl.col('minutes').count().alias('frequency')
+            ])
+            .sort('total_minutes', descending=True)
+        )
+
         self._save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_summary,
-                           template_path, output_dir, start_date, end_date)
+                           all_items_summary, template_path, output_dir, start_date, end_date)
 
     @staticmethod
     def _save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_summary,
-                           template_path, output_dir, start_date, end_date):
+                      all_items_summary, template_path, output_dir, start_date, end_date):
         """分析結果をExcelファイルに保存"""
         wb = load_workbook(filename=template_path)
 
@@ -200,6 +254,11 @@ class TaskAnalyzer:
             for j, value in enumerate(row, start=1):
                 comm_sheet.cell(row=i, column=j, value=value)
 
+        all_items_sheet = wb['全項目']
+        for i, row in enumerate(all_items_summary.to_pandas().values, start=2):
+            for j, value in enumerate(row, start=1):
+                all_items_sheet.cell(row=i, column=j, value=value)
+
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         start_date_str = datetime.strftime(datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S'), '%Y%m%d')
@@ -216,7 +275,7 @@ class TaskAnalyzer:
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
-            df, daily_df, comm_df, start_date_fmt, end_date_fmt = self.analyze_workbook(  # comm_dfを追加
+            df, daily_df, comm_df, all_items_df, start_date_fmt, end_date_fmt = self.analyze_workbook(
                 self.paths_config['input_file_path'],
                 start_date,
                 end_date
@@ -225,7 +284,8 @@ class TaskAnalyzer:
             self.analyze_tasks(
                 df,
                 daily_df,
-                comm_df,  # comm_dfを追加
+                comm_df,
+                all_items_df,  # 全項目のDataFrameを追加
                 self.paths_config['template_path'],
                 self.paths_config['output_dir'],
                 start_date,
