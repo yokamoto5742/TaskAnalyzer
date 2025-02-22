@@ -5,7 +5,7 @@ from version import VERSION
 
 def main():
     root = tk.Tk()
-    app = TaskAnalyzerGUI(root)
+    TaskAnalyzerGUI(root)
     root.mainloop()
 
 if __name__ == "__main__":
