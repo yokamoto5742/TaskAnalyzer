@@ -228,6 +228,9 @@ class TaskAnalyzer:
         self._save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_summary,
                            all_items_summary, template_path, output_dir, start_date, end_date)
 
+    """Pandasを使わずにPolarsのみを使うための修正点"""
+
+    # _save_resultsメソッドを修正する:
     @staticmethod
     def _save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_summary,
                       all_items_summary, template_path, output_dir, start_date, end_date):
@@ -235,28 +238,29 @@ class TaskAnalyzer:
         wb = load_workbook(filename=template_path)
 
         clerk_sheet = wb['クラーク業務']
-        for i, row in enumerate(clerk_tasks.to_pandas().values, start=2):
+        # to_pandasを使わずにPolarsのままで処理
+        for i, row in enumerate(clerk_tasks.iter_rows(), start=2):
             for j, value in enumerate(row, start=1):
                 clerk_sheet.cell(row=i, column=j, value=value)
 
         # クラーク以外の業務の結果を保存
         non_clerk_sheet = wb['クラーク以外業務']
-        for i, row in enumerate(non_clerk_tasks.to_pandas().values, start=2):
+        for i, row in enumerate(non_clerk_tasks.iter_rows(), start=2):
             for j, value in enumerate(row, start=1):
                 non_clerk_sheet.cell(row=i, column=j, value=value)
 
         daily_sheet = wb['デイリータスク']
-        for i, row in enumerate(daily_tasks.to_pandas().values, start=2):
+        for i, row in enumerate(daily_tasks.iter_rows(), start=2):
             for j, value in enumerate(row, start=1):
                 daily_sheet.cell(row=i, column=j, value=value)
 
         comm_sheet = wb['コミュニケーション']
-        for i, row in enumerate(communication_summary.to_pandas().values, start=2):
+        for i, row in enumerate(communication_summary.iter_rows(), start=2):
             for j, value in enumerate(row, start=1):
                 comm_sheet.cell(row=i, column=j, value=value)
 
         all_items_sheet = wb['全項目']
-        for i, row in enumerate(all_items_summary.to_pandas().values, start=2):
+        for i, row in enumerate(all_items_summary.iter_rows(), start=2):
             for j, value in enumerate(row, start=1):
                 all_items_sheet.cell(row=i, column=j, value=value)
 
