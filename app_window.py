@@ -15,6 +15,7 @@ class TaskAnalyzerGUI:
         self.root = root
         self.root.title(f'業務分析アプリ v{VERSION}')
         self.config = load_config()
+        self.analyzer = TaskAnalyzer()
 
         window_width = self.config.getint('Appearance', 'window_width')
         window_height = self.config.getint('Appearance', 'window_height')
@@ -54,6 +55,7 @@ class TaskAnalyzerGUI:
             row=5, column=0, columnspan=2, pady=5)
 
     def start_analysis(self):
+        """GUIから分析を開始するメソッド"""
         try:
             start_date = self.start_date.get_date()
             end_date = self.end_date.get_date()
@@ -62,6 +64,7 @@ class TaskAnalyzerGUI:
                 messagebox.showerror("エラー", "開始日が終了日より後の日付になっています。")
                 return
 
+            # 設定の保存
             if 'Analysis' not in self.config:
                 self.config.add_section('Analysis')
 
@@ -71,15 +74,18 @@ class TaskAnalyzerGUI:
             })
             save_config(self.config)
 
-            analyzer = TaskAnalyzer()
+            # 分析の実行
+            success, error_message = self.analyzer.run_analysis(
+                start_date.strftime('%Y-%m-%d'),
+                end_date.strftime('%Y-%m-%d')
+            )
 
-            start_date_str = start_date.strftime('%Y-%m-%d')
-            end_date_str = end_date.strftime('%Y-%m-%d')
-            success = analyzer.run_analysis(start_date_str, end_date_str)
             if not success:
-                messagebox.showerror("エラー", "分析中にエラーが発生しました。")
+                messagebox.showerror("エラー", error_message)
+
         except Exception as e:
             messagebox.showerror("エラー", f"予期せぬエラーが発生しました：\n{str(e)}")
+
 
     def open_config(self):
         config_path = self.config.get('PATHS', 'config_path')

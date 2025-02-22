@@ -95,7 +95,7 @@ class TaskAnalyzer:
 
         return tasks, daily_tasks, communication_tasks
 
-    def process_excel_sheet_all_items(self, wb, sheet_name, date):
+    def load_excel_sheet_all_items(self, wb, sheet_name, date):
         sheet = wb[sheet_name]
         all_items = []
 
@@ -132,7 +132,7 @@ class TaskAnalyzer:
 
                 if start_date <= sheet_date <= end_date:
                     tasks, daily_tasks, comm_tasks = self.load_excel_task_data(wb, sheet_name, sheet_date)
-                    all_items = self.process_excel_sheet_all_items(wb, sheet_name, sheet_date)
+                    all_items = self.load_excel_sheet_all_items(wb, sheet_name, sheet_date)
 
                     all_tasks.extend(tasks)
                     all_daily_tasks.extend(daily_tasks)
@@ -238,9 +238,11 @@ class TaskAnalyzer:
         os.system(f'start excel "{output_file_path}"')
 
     def run_analysis(self, start_date_str, end_date_str):
+
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+
             df, daily_df, comm_df, all_items_df, start_date_fmt, end_date_fmt = self.analyze_workbook(
                 self.paths_config['input_file_path'],
                 start_date,
@@ -258,7 +260,9 @@ class TaskAnalyzer:
                 end_date
             )
 
-            return True
+            return True, None
+
+        except ValueError as ve:
+            return False, f"日付の形式が正しくありません: {str(ve)}"
         except Exception as e:
-            print(f"エラーが発生しました: {e}")
-            return False
+            return False, f"分析中にエラーが発生しました: {str(e)}"
