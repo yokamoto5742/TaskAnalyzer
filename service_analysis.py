@@ -2,6 +2,7 @@ import polars as pl
 from datetime import datetime
 from pathlib import Path
 import os
+import re
 from openpyxl import load_workbook
 
 from config_manager import load_config
@@ -12,53 +13,63 @@ class TaskAnalyzer:
         self.config = load_config()
         self.paths_config = self.config['PATHS']
 
-    def process_excel_sheet(self, wb, sheet_name, date):
-        """Excelシートから業務データを抽出"""
+    @staticmethod
+    def extract_cell_data(sheet, row, date):
+        content = sheet[f'B{row}'].value
+        time = sheet[f'C{row}'].value
+
+        if not (content and time and time != '*'):
+            return None
+
+        try:
+            # 数値に変換できる場合のみ処理する
+            if isinstance(time, (int, float)):
+                minutes = float(time)
+            elif isinstance(time, str):
+                try:
+                    minutes = float(time)
+                except ValueError:
+                    return None
+            else:
+                return None
+
+            content = content.split()[0] if content else content
+            result = {
+                'date': date,
+                'content': content,
+                'minutes': minutes
+            }
+
+            return result
+        except (ValueError, TypeError) as e:
+            print(f"時間の変換でエラー: {e}")
+            return None
+
+    def load_excel_task_data(self, wb, sheet_name, date):
         sheet = wb[sheet_name]
         tasks = []
         daily_tasks = []
         communication_tasks = []
 
-        # 通常の業務データの抽出
+        # クラーク業務とクラーク業務以外のデータを抽出
         start_row = self.config.getint('Analysis', 'start_row')
         end_row = self.config.getint('Analysis', 'end_row')
 
         for row in range(start_row, end_row + 1):
-            content = sheet[f'B{row}'].value
-            time = sheet[f'C{row}'].value
+            data = self.extract_cell_data(sheet, row, date)
+            if data:
+                tasks.append(data)
 
-            if content and time and time != '*':
-                try:
-                    content = content.split()[0] if content else content
-                    minutes = float(time)
-                    tasks.append({
-                        'date': date,
-                        'content': content,
-                        'minutes': minutes
-                    })
-                except (ValueError, TypeError) as e:
-                    print(f"時間の変換でエラー: {e}")
-
-        # デイリータスクの抽出
+        # デイリータスクのデータを抽出
         daily_start_row = self.config.getint('Analysis', 'daily_task_start_row')
         daily_end_row = self.config.getint('Analysis', 'daily_task_end_row')
 
         for row in range(daily_start_row, daily_end_row + 1):
-            content = sheet[f'B{row}'].value
-            time = sheet[f'C{row}'].value
+            data = self.extract_cell_data(sheet, row, date)
+            if data:
+                daily_tasks.append(data)
 
-            if content and time and time != '*':
-                try:
-                    content = content.split()[0] if content else content
-                    minutes = float(time)
-                    daily_tasks.append({
-                        'date': date,
-                        'content': content,
-                        'minutes': minutes
-                    })
-                except (ValueError, TypeError) as e:
-                    print(f"デイリータスクの時間の変換でエラー: {e}")
-
+        # コミュニケーションのデータを抽出
         comm_start_row = self.config.getint('Analysis', 'communication_start_row')
         comm_end_row = self.config.getint('Analysis', 'communication_end_row')
 
@@ -69,7 +80,6 @@ class TaskAnalyzer:
             if content and time and time != '*':
                 try:
                     # 名前を抽出 (括弧内の文字列を取得)
-                    import re
                     name_match = re.search(r'\((.*?)\)', content)
                     if name_match:
                         name = name_match.group(1)
@@ -86,7 +96,6 @@ class TaskAnalyzer:
         return tasks, daily_tasks, communication_tasks
 
     def process_excel_sheet_all_items(self, wb, sheet_name, date):
-        """Excelシートから全ての項目（B4:C43）のデータを抽出"""
         sheet = wb[sheet_name]
         all_items = []
 
@@ -94,31 +103,9 @@ class TaskAnalyzer:
         end_row = self.config.getint('Analysis', 'daily_task_end_row')
 
         for row in range(start_row, end_row + 1):
-            content = sheet[f'B{row}'].value
-            time = sheet[f'C{row}'].value
-
-            if content and time and time != '*':
-                try:
-                    # 数値に変換できる場合のみ処理する
-                    if isinstance(time, (int, float)):
-                        minutes = float(time)
-                    elif isinstance(time, str):
-                        try:
-                            minutes = float(time)
-                        except ValueError:
-                            continue
-                    else:
-                        continue
-
-                    content = content.split()[0] if content else content
-                    all_items.append({
-                        'date': date,
-                        'content': content,
-                        'minutes': minutes,
-                        'row': row
-                    })
-                except (ValueError, TypeError) as e:
-                    print(f"時間の変換でエラー（行 {row}）: {e}")
+            data = self.extract_cell_data(sheet, row, date)
+            if data:
+                all_items.append(data)
 
         return all_items
 
@@ -144,7 +131,7 @@ class TaskAnalyzer:
                     sheet_date = datetime.strptime(str(date_cell), '%Y年%m月%d日')
 
                 if start_date <= sheet_date <= end_date:
-                    tasks, daily_tasks, comm_tasks = self.process_excel_sheet(wb, sheet_name, sheet_date)
+                    tasks, daily_tasks, comm_tasks = self.load_excel_task_data(wb, sheet_name, sheet_date)
                     all_items = self.process_excel_sheet_all_items(wb, sheet_name, sheet_date)  # 全項目処理を呼び出し
 
                     all_tasks.extend(tasks)
