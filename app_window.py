@@ -3,6 +3,8 @@ from tkinter import ttk
 from tkinter import messagebox
 from tkcalendar import DateEntry
 from datetime import datetime
+import subprocess
+
 from config_manager import load_config, save_config
 from version import VERSION
 from service_analysis import TaskAnalyzer
@@ -109,5 +111,11 @@ class TaskAnalyzerGUI:
 
     def open_config(self):
         """設定ファイルを開くボタンのコールバック"""
-        # 設定ファイルを開く処理の実装
-        pass
+        # 設定ファイルのパスを取得
+        config_path = self.config.get('PATHS', 'config_path')
+
+        try:
+            subprocess.Popen(['notepad.exe', config_path])
+        except Exception as e:
+            messagebox.showerror("エラー", f"設定ファイルを開けませんでした：\n{str(e)}")
+            print(f"エラーの詳細: {e}")
