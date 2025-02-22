@@ -238,7 +238,6 @@ class TaskAnalyzer:
         os.system(f'start excel "{output_file_path}"')
 
     def run_analysis(self, start_date_str, end_date_str):
-        """分析処理の実行"""
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
@@ -252,7 +251,7 @@ class TaskAnalyzer:
                 df,
                 daily_df,
                 comm_df,
-                all_items_df,  # 全項目のDataFrameを追加
+                all_items_df,
                 self.paths_config['template_path'],
                 self.paths_config['output_dir'],
                 start_date,
