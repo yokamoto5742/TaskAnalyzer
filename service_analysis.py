@@ -114,7 +114,7 @@ class TaskAnalyzer:
         all_tasks = []
         all_daily_tasks = []
         all_communication_tasks = []
-        all_items_tasks = []  # 全項目を追加
+        all_items = []
         dates = []
 
         for sheet_name in wb.sheetnames:
@@ -132,12 +132,12 @@ class TaskAnalyzer:
 
                 if start_date <= sheet_date <= end_date:
                     tasks, daily_tasks, comm_tasks = self.load_excel_task_data(wb, sheet_name, sheet_date)
-                    all_items = self.process_excel_sheet_all_items(wb, sheet_name, sheet_date)  # 全項目処理を呼び出し
+                    all_items = self.process_excel_sheet_all_items(wb, sheet_name, sheet_date)
 
                     all_tasks.extend(tasks)
                     all_daily_tasks.extend(daily_tasks)
                     all_communication_tasks.extend(comm_tasks)
-                    all_items_tasks.extend(all_items)  # 全項目を追加
+                    all_items.extend(all_items)
                     dates.append(sheet_date)
 
             except (ValueError, TypeError) as e:
@@ -150,87 +150,63 @@ class TaskAnalyzer:
         df = pl.DataFrame(all_tasks)
         daily_df = pl.DataFrame(all_daily_tasks)
         comm_df = pl.DataFrame(all_communication_tasks)
-        all_items_df = pl.DataFrame(all_items_tasks)  # 全項目のDataFrameを作成
+        all_items_df = pl.DataFrame(all_items)
 
         start_date = min(dates).strftime("%Y%m%d")
         end_date = max(dates).strftime("%Y%m%d")
 
         return df, daily_df, comm_df, all_items_df, start_date, end_date
 
-    def analyze_tasks(self, df, daily_df, comm_df, all_items_df, template_path, output_dir, start_date, end_date):
-        """業務データの分析と結果の出力"""
-        clerk_tasks = (
-            df.filter(pl.col('content').str.contains('クラーク業務'))
-            .group_by('content')
-            .agg([
-                pl.col('minutes').sum().alias('total_minutes'),
-                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
-                pl.col('minutes').count().alias('frequency')
-            ])
-            .sort('total_minutes', descending=True)
-        )
-
-        non_clerk_tasks = (
-            df.filter(~pl.col('content').str.contains('クラーク業務'))
-            .group_by('content')
-            .agg([
-                pl.col('minutes').sum().alias('total_minutes'),
-                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
-                pl.col('minutes').count().alias('frequency')
-            ])
-            .sort('total_minutes', descending=True)
-        )
-
-        daily_tasks = (
-            daily_df.group_by('content')
-            .agg([
-                pl.col('minutes').sum().alias('total_minutes'),
-                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
-                pl.col('minutes').count().alias('frequency')
-            ])
-            .sort('total_minutes', descending=True)
-        )
-
-        communication_summary = (
-            comm_df.group_by('name')
-            .agg([
-                pl.col('minutes').sum().alias('total_minutes'),
-                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
-                pl.col('minutes').count().alias('frequency')
-            ])
-            .sort('total_minutes', descending=True)
-        )
-
-        # 全項目の分析を追加
-        all_items_summary = (
-            all_items_df.group_by('content')
-            .agg([
-                pl.col('minutes').sum().alias('total_minutes'),
-                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
-                pl.col('minutes').count().alias('frequency')
-            ])
-            .sort('total_minutes', descending=True)
-        )
-
-        self._save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_summary,
-                           all_items_summary, template_path, output_dir, start_date, end_date)
-
-    """Pandasを使わずにPolarsのみを使うための修正点"""
-
-    # _save_resultsメソッドを修正する:
     @staticmethod
-    def _save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_summary,
-                      all_items_summary, template_path, output_dir, start_date, end_date):
-        """分析結果をExcelファイルに保存"""
+    def aggregate_dataframe(data_frame, group_by_col='content', filter_condition=None):
+        if filter_condition is not None:
+            data_frame = data_frame.filter(filter_condition)
+
+        return (
+            data_frame.group_by(group_by_col)
+            .agg([
+                pl.col('minutes').sum().alias('total_minutes'),
+                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
+                pl.col('minutes').count().alias('frequency')
+            ])
+            .sort('total_minutes', descending=True)
+        )
+
+    def analyze_tasks(self, df, daily_df, comm_df, all_items_df, template_path, output_dir, start_date, end_date):
+        clerk_tasks = self.aggregate_dataframe(
+            df,
+            filter_condition=pl.col('content').str.contains('クラーク業務')
+        )
+        non_clerk_tasks = self.aggregate_dataframe(
+            df,
+            filter_condition=~pl.col('content').str.contains('クラーク業務')
+        )
+        daily_tasks = self.aggregate_dataframe(daily_df)
+        communication_summary = self.aggregate_dataframe(comm_df, group_by_col='name')
+        all_items_summary = self.aggregate_dataframe(all_items_df)
+
+        self.save_results(
+            clerk_tasks,
+            non_clerk_tasks,
+            daily_tasks,
+            communication_summary,
+            all_items_summary,
+            template_path,
+            output_dir,
+            start_date,
+            end_date
+        )
+
+    @staticmethod
+    def save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_summary,
+                     all_items_summary, template_path, output_dir, start_date, end_date):
         wb = load_workbook(filename=template_path)
 
         clerk_sheet = wb['クラーク業務']
-        # to_pandasを使わずにPolarsのままで処理
         for i, row in enumerate(clerk_tasks.iter_rows(), start=2):
             for j, value in enumerate(row, start=1):
                 clerk_sheet.cell(row=i, column=j, value=value)
 
-        # クラーク以外の業務の結果を保存
         non_clerk_sheet = wb['クラーク以外業務']
         for i, row in enumerate(non_clerk_tasks.iter_rows(), start=2):
             for j, value in enumerate(row, start=1):
@@ -259,7 +235,6 @@ class TaskAnalyzer:
         output_file_path = output_path / output_filename
 
         wb.save(output_file_path)
-        print(f"\n集計結果を保存しました: {output_file_path}")
         os.system(f'start excel "{output_file_path}"')
 
     def run_analysis(self, start_date_str, end_date_str):
