@@ -13,7 +13,7 @@ from service_analysis import TaskAnalyzer
 class TaskAnalyzerGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title(f'業務分析アプリ v{VERSION}')
+        self.root.title(f'業務分析 v{VERSION}')
         self.config = load_config()
         self.analyzer = TaskAnalyzer()
 
