@@ -114,7 +114,7 @@ class TaskAnalyzer:
         all_tasks = []
         all_daily_tasks = []
         all_communication_tasks = []
-        all_items = []
+        all_items = []  # ここは空のリストで初期化
         dates = []
 
         for sheet_name in wb.sheetnames:
@@ -132,20 +132,17 @@ class TaskAnalyzer:
 
                 if start_date <= sheet_date <= end_date:
                     tasks, daily_tasks, comm_tasks = self.load_excel_task_data(wb, sheet_name, sheet_date)
-                    all_items = self.load_excel_sheet_all_items(wb, sheet_name, sheet_date)
+                    sheet_items = self.load_excel_sheet_all_items(wb, sheet_name, sheet_date)  # 変数名を変更
 
                     all_tasks.extend(tasks)
                     all_daily_tasks.extend(daily_tasks)
                     all_communication_tasks.extend(comm_tasks)
-                    all_items.extend(all_items)
+                    all_items.extend(sheet_items)
                     dates.append(sheet_date)
 
             except (ValueError, TypeError) as e:
                 print(f"シート {sheet_name} の日付の解析でエラー: {e}")
                 continue
-
-        if not dates:
-            raise ValueError("有効なデータが見つかりませんでした。")
 
         df = pl.DataFrame(all_tasks)
         daily_df = pl.DataFrame(all_daily_tasks)
