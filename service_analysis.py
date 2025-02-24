@@ -83,6 +83,7 @@ class TaskAnalyzer:
                     name_match = re.search(r'\((.*?)\)', content)
                     if name_match:
                         name = name_match.group(1)
+                        content = re.sub(r'\(.*?\)', '', content).strip()
                         content = content.split()[0]
                         minutes = float(time)
                         communication_tasks.append({
