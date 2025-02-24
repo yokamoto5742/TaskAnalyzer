@@ -83,6 +83,7 @@ class TaskAnalyzer:
                     name_match = re.search(r'\((.*?)\)', content)
                     if name_match:
                         name = name_match.group(1)
+                        content = content.split()[0]
                         minutes = float(time)
                         communication_tasks.append({
                             'date': date,
@@ -159,6 +160,17 @@ class TaskAnalyzer:
         if filter_condition is not None:
             data_frame = data_frame.filter(filter_condition)
 
+        if group_by_col == 'content' and 'name' in data_frame.columns:
+            return (
+                data_frame.group_by(['name', group_by_col])
+                .agg([
+                    pl.col('minutes').sum().alias('total_minutes'),
+                    (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
+                    pl.col('minutes').count().alias('frequency')
+                ])
+                .sort(['name', 'total_minutes'], descending=[False, True])
+            )
+
         return (
             data_frame.group_by(group_by_col)
             .agg([
@@ -180,7 +192,16 @@ class TaskAnalyzer:
         )
         daily_tasks = self.aggregate_dataframe(daily_df)
         communication_by_name = self.aggregate_dataframe(comm_df, group_by_col='name')
-        communication_by_content = self.aggregate_dataframe(comm_df, group_by_col='content')
+        communication_by_content = (
+            comm_df.group_by(['content', 'name'])
+            .agg([
+                pl.col('minutes').sum().alias('total_minutes'),
+                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
+                pl.col('minutes').count().alias('frequency')
+            ])
+            .sort(['name', 'total_minutes'], descending=[False, True])
+            .select(['content', 'name', 'total_minutes', 'total_hours', 'frequency'])
+        )
 
         all_items_summary = self.aggregate_dataframe(all_items_df)
 
