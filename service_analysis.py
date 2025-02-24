@@ -179,14 +179,17 @@ class TaskAnalyzer:
             filter_condition=~pl.col('content').str.contains('クラーク業務')
         )
         daily_tasks = self.aggregate_dataframe(daily_df)
-        communication_summary = self.aggregate_dataframe(comm_df, group_by_col='name')
+        communication_by_name = self.aggregate_dataframe(comm_df, group_by_col='name')
+        communication_by_content = self.aggregate_dataframe(comm_df, group_by_col='content')
+
         all_items_summary = self.aggregate_dataframe(all_items_df)
 
         self.save_results(
             clerk_tasks,
             non_clerk_tasks,
             daily_tasks,
-            communication_summary,
+            communication_by_name,
+            communication_by_content,
             all_items_summary,
             template_path,
             output_dir,
@@ -195,8 +198,9 @@ class TaskAnalyzer:
         )
 
     @staticmethod
-    def save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_summary,
-                     all_items_summary, template_path, output_dir, start_date, end_date):
+    def save_results(clerk_tasks, non_clerk_tasks, daily_tasks, communication_by_name,
+                     communication_by_content, all_items_summary, template_path, output_dir,
+                     start_date, end_date):
         wb = load_workbook(filename=template_path)
 
         clerk_sheet = wb['クラーク業務']
@@ -215,9 +219,17 @@ class TaskAnalyzer:
                 daily_sheet.cell(row=i, column=j, value=value)
 
         comm_sheet = wb['コミュニケーション']
-        for i, row in enumerate(communication_summary.iter_rows(), start=2):
+        for i, row in enumerate(communication_by_name.iter_rows(), start=2):
             for j, value in enumerate(row, start=1):
                 comm_sheet.cell(row=i, column=j, value=value)
+
+        # コミュニケーション内容シートへの書き込み
+        comm_content_sheet = wb['コミュニケーション内容']
+
+        # データの書き込み
+        for i, row in enumerate(communication_by_content.iter_rows(), start=2):
+            for j, value in enumerate(row, start=1):
+                comm_content_sheet.cell(row=i, column=j, value=value)
 
         all_items_sheet = wb['全項目']
         for i, row in enumerate(all_items_summary.iter_rows(), start=2):
@@ -226,8 +238,8 @@ class TaskAnalyzer:
 
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
-        start_date_str = datetime.strftime(datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S'), '%Y%m%d')
-        end_date_str = datetime.strftime(datetime.strptime(str(end_date), '%Y-%m-%d %H:%M:%S'), '%Y%m%d')
+        start_date_str = start_date.strftime('%Y%m%d')
+        end_date_str = end_date.strftime('%Y%m%d')
         output_filename = f'WILLDOリストまとめ{start_date_str}_{end_date_str}.xlsx'
         output_file_path = output_path / output_filename
 
