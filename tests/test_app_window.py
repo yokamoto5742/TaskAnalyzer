@@ -4,6 +4,7 @@ from datetime import datetime
 import configparser
 import os
 from app_window import TaskAnalyzerGUI
+from version import VERSION
 
 
 @pytest.fixture
@@ -92,7 +93,7 @@ def gui(mock_tk, mock_config, mock_analyzer, mock_date_entry):
 
 def test_init(gui, mock_tk):
     """初期化のテスト"""
-    mock_tk.title.assert_called_with('業務分析アプリ v1.0.0')
+    mock_tk.title.assert_called_with(f'業務分析 v{VERSION}')
 
 
 def test_analysis_error(gui, mock_config, mock_analyzer, mock_date_entry, mock_messagebox):
