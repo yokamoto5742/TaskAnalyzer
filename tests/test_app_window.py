@@ -29,22 +29,39 @@ def mock_date_entry():
 @pytest.fixture
 def mock_config():
     config = configparser.ConfigParser()
+    original_config = configparser.ConfigParser()
 
-    # 初期設定を追加
     config['Appearance'] = {
         'window_width': '800',
         'window_height': '600'
     }
-
     config['PATHS'] = {
         'config_path': 'test_config.ini'
     }
-
     config['Analysis'] = {}
+
+    for section in config.sections():
+        if not original_config.has_section(section):
+            original_config.add_section(section)
+        for key, value in config[section].items():
+            original_config[section][key] = value
 
     with patch('app_window.load_config', return_value=config), \
             patch('app_window.save_config') as mock_save:
         yield config
+        restore_config(config, original_config)
+
+
+def restore_config(config, original_config):
+    """configを元の状態に復元するヘルパーメソッド"""
+    for section in config.sections():
+        config.remove_section(section)
+    for section in original_config.sections():
+        if not config.has_section(section):
+            config.add_section(section)
+        for key, value in original_config[section].items():
+            config[section][key] = value
+
 
 
 @pytest.fixture

@@ -12,6 +12,7 @@ from service_analysis import TaskAnalyzer
 def mock_config():
     from configparser import ConfigParser
     config = ConfigParser()
+    original_config = ConfigParser()
 
     config['PATHS'] = {
         'input_file_path': 'dummy/path/willdo.xlsx',
@@ -26,7 +27,26 @@ def mock_config():
         'daily_task_start_row': '37',
         'daily_task_end_row': '43'
     }
-    return config
+
+    for section in config.sections():
+        if not original_config.has_section(section):
+            original_config.add_section(section)
+        for key, value in config[section].items():
+            original_config[section][key] = value
+
+    yield config
+    restore_config(config, original_config)
+
+
+def restore_config(config, original_config):
+    """configを元の状態に復元するヘルパーメソッド"""
+    for section in config.sections():
+        config.remove_section(section)
+    for section in original_config.sections():
+        if not config.has_section(section):
+            config.add_section(section)
+        for key, value in original_config[section].items():
+            config[section][key] = value
 
 
 @pytest.fixture
