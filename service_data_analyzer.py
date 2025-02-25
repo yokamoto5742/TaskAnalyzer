@@ -2,30 +2,8 @@ import polars as pl
 
 
 class TaskDataAnalyzer:
-    """
-    タスクデータの分析と集計を行うクラス
-    """
     @staticmethod
     def create_dataframes(tasks, daily_tasks, communication_tasks, all_items):
-        """
-        リストからpolarsデータフレームを作成する
-        
-        Parameters:
-        -----------
-        tasks : list
-            タスクのリスト
-        daily_tasks : list
-            デイリータスクのリスト
-        communication_tasks : list
-            コミュニケーションタスクのリスト
-        all_items : list
-            全項目のリスト
-            
-        Returns:
-        --------
-        tuple
-            (df, daily_df, comm_df, all_items_df)
-        """
         df = pl.DataFrame(tasks)
         daily_df = pl.DataFrame(daily_tasks)
         comm_df = pl.DataFrame(communication_tasks)
@@ -35,23 +13,7 @@ class TaskDataAnalyzer:
 
     @staticmethod
     def aggregate_dataframe(data_frame, group_by_col='content', filter_condition=None):
-        """
-        データフレームを集計する
-        
-        Parameters:
-        -----------
-        data_frame : DataFrame
-            集計対象のデータフレーム
-        group_by_col : str
-            グループ化するカラム名
-        filter_condition : Expression
-            フィルター条件
-            
-        Returns:
-        --------
-        DataFrame
-            集計結果のデータフレーム
-        """
+
         if filter_condition is not None:
             data_frame = data_frame.filter(filter_condition)
 
@@ -77,26 +39,7 @@ class TaskDataAnalyzer:
         )
 
     def analyze_task_data(self, tasks, daily_tasks, comm_tasks, all_items):
-        """
-        タスクデータを分析する
-        
-        Parameters:
-        -----------
-        tasks : list
-            タスクのリスト
-        daily_tasks : list
-            デイリータスクのリスト
-        comm_tasks : list
-            コミュニケーションタスクのリスト
-        all_items : list
-            全項目のリスト
-            
-        Returns:
-        --------
-        tuple
-            (clerk_tasks, non_clerk_tasks, daily_tasks_agg, 
-             communication_by_name, communication_by_content, all_items_summary)
-        """
+
         df, daily_df, comm_df, all_items_df = self.create_dataframes(
             tasks, daily_tasks, comm_tasks, all_items
         )
@@ -116,10 +59,10 @@ class TaskDataAnalyzer:
         # デイリータスクの集計
         daily_tasks_agg = self.aggregate_dataframe(daily_df)
         
-        # コミュニケーション（名前別）の集計
+        # コミュニケーションの集計
         communication_by_name = self.aggregate_dataframe(comm_df, group_by_col='name')
         
-        # コミュニケーション（内容別）の集計
+        # コミュニケーション内容別の集計
         communication_by_content = (
             comm_df.group_by(['content', 'name'])
             .agg([
