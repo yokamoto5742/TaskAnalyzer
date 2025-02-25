@@ -5,31 +5,11 @@ from pathlib import Path
 
 
 class ExcelTaskReader:
-    """
-    Excelファイルからタスクデータを読み込むクラス
-    """
     def __init__(self, config):
         self.config = config
 
     @staticmethod
     def extract_cell_data(sheet, row, date):
-        """
-        Excelのセルからデータを抽出する
-        
-        Parameters:
-        -----------
-        sheet : worksheet
-            対象のワークシート
-        row : int
-            行番号
-        date : datetime
-            日付
-            
-        Returns:
-        --------
-        dict or None
-            抽出されたデータ、抽出できない場合はNone
-        """
         content = sheet[f'B{row}'].value
         time = sheet[f'C{row}'].value
 
@@ -61,23 +41,6 @@ class ExcelTaskReader:
             return None
 
     def load_excel_task_data(self, wb, sheet_name, date):
-        """
-        ワークシートから各種タスクデータを読み込む
-        
-        Parameters:
-        -----------
-        wb : Workbook
-            Excelワークブック
-        sheet_name : str
-            シート名
-        date : datetime
-            日付
-            
-        Returns:
-        --------
-        tuple
-            (tasks, daily_tasks, communication_tasks)
-        """
         sheet = wb[sheet_name]
         tasks = []
         daily_tasks = []
@@ -92,7 +55,6 @@ class ExcelTaskReader:
             if data:
                 tasks.append(data)
 
-        # デイリータスクのデータを抽出
         daily_start_row = self.config.getint('Analysis', 'daily_task_start_row')
         daily_end_row = self.config.getint('Analysis', 'daily_task_end_row')
 
@@ -101,7 +63,6 @@ class ExcelTaskReader:
             if data:
                 daily_tasks.append(data)
 
-        # コミュニケーションのデータを抽出
         comm_start_row = self.config.getint('Analysis', 'communication_start_row')
         comm_end_row = self.config.getint('Analysis', 'communication_end_row')
 
@@ -130,23 +91,6 @@ class ExcelTaskReader:
         return tasks, daily_tasks, communication_tasks
 
     def load_excel_sheet_all_items(self, wb, sheet_name, date):
-        """
-        ワークシートから全項目データを読み込む
-        
-        Parameters:
-        -----------
-        wb : Workbook
-            Excelワークブック
-        sheet_name : str
-            シート名
-        date : datetime
-            日付
-            
-        Returns:
-        --------
-        list
-            全項目のデータリスト
-        """
         sheet = wb[sheet_name]
         all_items = []
 
@@ -161,24 +105,6 @@ class ExcelTaskReader:
         return all_items
 
     def read_workbook(self, file_path, start_date, end_date):
-        """
-        Excelワークブックから指定期間のデータを読み込む
-        
-        Parameters:
-        -----------
-        file_path : str
-            Excelファイルのパス
-        start_date : datetime
-            開始日
-        end_date : datetime
-            終了日
-            
-        Returns:
-        --------
-        tuple
-            (all_tasks, all_daily_tasks, all_communication_tasks, all_items, 
-             actual_start_date, actual_end_date)
-        """
         wb = load_workbook(filename=file_path)
         all_tasks = []
         all_daily_tasks = []
