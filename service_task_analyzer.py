@@ -1,8 +1,8 @@
 from datetime import datetime
 from config_manager import load_config
-from excel_reader import ExcelTaskReader
-from data_analyzer import TaskDataAnalyzer
-from excel_writer import ExcelResultWriter
+from service_excel_reader import ExcelTaskReader
+from service_data_analyzer import TaskDataAnalyzer
+from service_excel_writer import ExcelResultWriter
 
 
 class TaskAnalyzer:

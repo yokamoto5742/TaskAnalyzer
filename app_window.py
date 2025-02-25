@@ -7,7 +7,7 @@ import subprocess
 
 from config_manager import load_config, save_config
 from version import VERSION
-from task_analyzer import TaskAnalyzer
+from service_task_analyzer import TaskAnalyzer
 
 
 class TaskAnalyzerGUI:
