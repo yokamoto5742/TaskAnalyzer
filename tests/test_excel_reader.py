@@ -125,7 +125,7 @@ class TestExcelTaskReader:
 
     def test_load_excel_task_data(self, mock_config, mock_workbook):
         reader = ExcelTaskReader(mock_config)
-        wb = reader._ExcelTaskReader__load_workbook(mock_workbook)  # 非公開メソッドを呼び出す
+        wb = self.__load_workbook(mock_workbook) # テスト用のワークブックを読み込む
         
         # 日付
         date = datetime(2024, 1, 1)
@@ -148,7 +148,7 @@ class TestExcelTaskReader:
 
     def test_load_excel_sheet_all_items(self, mock_config, mock_workbook):
         reader = ExcelTaskReader(mock_config)
-        wb = reader._ExcelTaskReader__load_workbook(mock_workbook)  # 非公開メソッドを呼び出す
+        wb = self.__load_workbook(mock_workbook) # テスト用のワークブックを読み込む
         
         # 日付
         date = datetime(2024, 1, 1)
