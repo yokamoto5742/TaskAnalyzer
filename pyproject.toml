@@ -1,6 +1,6 @@
 [project]
 name = "taskanalyzer"
-version = "1.0.1"
+version = "1.0.2"
 requires-python = ">=3.13"
 
 dependencies = [
@@ -23,6 +23,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
+markers = [
+    "integration: 実際の Tkinter ウィンドウを使う統合テスト",
+]
 
 [tool.pyright]
 typeCheckingMode = "standard"

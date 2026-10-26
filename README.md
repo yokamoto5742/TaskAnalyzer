@@ -15,26 +15,28 @@
 
 ## インストール方法
 1. リポジトリをクローンまたはダウンロードします
-2. 必要なパッケージをインストールします：
+2. [uv](https://docs.astral.sh/uv/) で必要なパッケージをインストールします：
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 ## アプリケーションの構成
 - `main.py`: アプリケーションのエントリーポイント
-- `app_window.py`: GUIの実装
-- `service_task_analyzer.py`: 分析の全体的な処理の実装
-- `service_excel_reader.py`: Excelファイルの読み込み処理
-- `service_data_analyzer.py`: データの集計・分析ロジック
-- `service_excel_writer.py`: 分析結果のExcel出力処理
+- `app/__init__.py`: アプリケーションのバージョン情報(`__version__`)
+- `app/app_window.py`: GUIの実装
+- `service/service_task_analyzer.py`: 分析の全体的な処理の実装
+- `service/service_excel_reader.py`: Excelファイルの読み込み処理
+- `service/service_data_analyzer.py`: データの集計・分析ロジック
+- `service/service_excel_writer.py`: 分析結果のExcel出力処理
 - `utils/utils.py`: ユーティリティ関数
 - `utils/config_manager.py`: 設定ファイル管理
-- `version.py`: アプリケーションのバージョン情報
+- `utils/config.ini`: 設定ファイル
+- `build.py`: PyInstallerによる実行ファイルのビルド
 
 ## 使用方法
 アプリケーションの起動：
 ```bash
-python main.py
+uv run python main.py
 ```
 
 1. GUIで分析期間（開始日・終了日）を選択します
@@ -117,9 +119,9 @@ python main.py
 
 ## トラブルシューティング
 1. アプリケーションが起動しない
-   - Python 3.11以上がインストールされているか確認
+   - Python 3.13以上がインストールされているか確認
    - 必要なパッケージがすべてインストールされているか確認
-   - `pip install -r requirements.txt`を実行して必要なパッケージをインストール
+   - `uv sync`を実行して必要なパッケージをインストール
 
 2. 分析が実行されない
    - 設定ファイルの内容が正しいか確認
