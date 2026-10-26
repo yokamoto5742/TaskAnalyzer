@@ -2,10 +2,9 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from tkcalendar import DateEntry
-from datetime import datetime
 import subprocess
 
-from config_manager import load_config, save_config
+from utils.config_manager import load_config, save_config
 from version import VERSION
 from service_task_analyzer import TaskAnalyzer
 

@@ -5,7 +5,7 @@
 クラーク業務、デイリータスク、コミュニケーションなど、様々な観点から業務時間の分析が可能です。
 
 ## 動作要件
-- Python 3.11以上
+- Python 3.13以上
 - Windows OS
 - 必要なPythonパッケージ:
   - tkcalendar
@@ -27,8 +27,8 @@ pip install -r requirements.txt
 - `service_excel_reader.py`: Excelファイルの読み込み処理
 - `service_data_analyzer.py`: データの集計・分析ロジック
 - `service_excel_writer.py`: 分析結果のExcel出力処理
-- `utils.py`: ユーティリティ関数
-- `config_manager.py`: 設定ファイル管理
+- `utils/utils.py`: ユーティリティ関数
+- `utils/config_manager.py`: 設定ファイル管理
 - `version.py`: アプリケーションのバージョン情報
 
 ## 使用方法
@@ -102,7 +102,7 @@ python main.py
 
 3. データ処理の拡張
    - `service_excel_reader.py`を拡張して新しいデータの読み込み処理を追加
-   - `utils.py`に共通のユーティリティ関数を追加
+   - `utils/utils.py`に共通のユーティリティ関数を追加
 
 ## 実装の詳細
 ### データ処理
@@ -136,4 +136,9 @@ python main.py
    - 設定ファイルの行指定が正しいか確認
 
 ## ライセンス
-このプロジェクトのライセンス情報については、LICENSEファイルを参照してください。
+
+このプロジェクトのライセンス情報については、 [LICENSE](docs/LICENSE) を参照してください。
+
+## 更新履歴
+
+更新履歴は [CHANGELOG.md](docs/CHANGELOG.md) を参照してください。

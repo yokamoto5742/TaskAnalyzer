@@ -1,6 +1,5 @@
 import tkinter as tk
 from app_window import TaskAnalyzerGUI
-from version import VERSION
 
 
 def main():
