@@ -1,5 +1,5 @@
 import tkinter as tk
-from app_window import TaskAnalyzerGUI
+from app.app_window import TaskAnalyzerGUI
 
 
 def main():

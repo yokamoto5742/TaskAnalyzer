@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 import polars as pl
 from openpyxl import load_workbook, Workbook
-from service_excel_writer import ExcelResultWriter
+from service.service_excel_writer import ExcelResultWriter
 
 
 @pytest.fixture

@@ -8,7 +8,7 @@ def build_executable():
         "--name=TaskAnalyzer",
         "--windowed",
         "--icon=assets/TaskAnalyzer.ico",
-        "--add-data", "config.ini:.",
+        "--add-data", "utils/config.ini:.",
         "main.py"
     ])
 

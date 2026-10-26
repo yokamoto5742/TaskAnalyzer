@@ -1,14 +1,14 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from datetime import datetime
-from service_task_analyzer import TaskAnalyzer
+from service.service_task_analyzer import TaskAnalyzer
 
 
 class TestTaskAnalyzer:
-    @patch('service_task_analyzer.load_config')
-    @patch('service_task_analyzer.ExcelTaskReader')
-    @patch('service_task_analyzer.TaskDataAnalyzer')
-    @patch('service_task_analyzer.ExcelResultWriter')
+    @patch('service.service_task_analyzer.load_config')
+    @patch('service.service_task_analyzer.ExcelTaskReader')
+    @patch('service.service_task_analyzer.TaskDataAnalyzer')
+    @patch('service.service_task_analyzer.ExcelResultWriter')
     def test_initialization(self, mock_writer, mock_analyzer, mock_reader, mock_load_config):
         # モックの設定
         mock_config = {
@@ -30,10 +30,10 @@ class TestTaskAnalyzer:
         mock_analyzer.assert_called_once()
         mock_writer.assert_called_once()
 
-    @patch('service_task_analyzer.load_config')
-    @patch('service_task_analyzer.ExcelTaskReader')
-    @patch('service_task_analyzer.TaskDataAnalyzer')
-    @patch('service_task_analyzer.ExcelResultWriter')
+    @patch('service.service_task_analyzer.load_config')
+    @patch('service.service_task_analyzer.ExcelTaskReader')
+    @patch('service.service_task_analyzer.TaskDataAnalyzer')
+    @patch('service.service_task_analyzer.ExcelResultWriter')
     def test_run_analysis_success(self, mock_writer_class, mock_analyzer_class, mock_reader_class, mock_load_config):
         # モックの設定
         mock_config = {
@@ -112,7 +112,7 @@ class TestTaskAnalyzer:
             datetime(2024, 1, 5)
         )
 
-    @patch('service_task_analyzer.load_config')
+    @patch('service.service_task_analyzer.load_config')
     def test_run_analysis_date_format_error(self, mock_load_config):
         # モックの設定
         mock_config = {'PATHS': {}}
@@ -126,8 +126,8 @@ class TestTaskAnalyzer:
         assert success is False
         assert '日付の形式が正しくありません' in message
 
-    @patch('service_task_analyzer.load_config')
-    @patch('service_task_analyzer.ExcelTaskReader')
+    @patch('service.service_task_analyzer.load_config')
+    @patch('service.service_task_analyzer.ExcelTaskReader')
     def test_run_analysis_general_exception(self, mock_reader_class, mock_load_config):
         # モックの設定
         mock_config = {

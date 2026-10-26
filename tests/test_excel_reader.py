@@ -3,7 +3,7 @@ import tempfile
 import configparser
 from datetime import datetime
 from openpyxl import Workbook
-from service_excel_reader import ExcelTaskReader
+from service.service_excel_reader import ExcelTaskReader
 
 
 @pytest.fixture

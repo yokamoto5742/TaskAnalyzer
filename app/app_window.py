@@ -5,14 +5,14 @@ from tkcalendar import DateEntry
 import subprocess
 
 from utils.config_manager import load_config, save_config
-from version import VERSION
-from service_task_analyzer import TaskAnalyzer
+from app import __version__
+from service.service_task_analyzer import TaskAnalyzer
 
 
 class TaskAnalyzerGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title(f'業務分析 v{VERSION}')
+        self.root.title(f'業務分析 v{__version__}')
         self.config = load_config()
         self.analyzer = TaskAnalyzer()
 

@@ -1,6 +1,6 @@
 import pytest
 import polars as pl
-from service_data_analyzer import TaskDataAnalyzer
+from service.service_data_analyzer import TaskDataAnalyzer
 
 
 @pytest.fixture

@@ -3,13 +3,13 @@ from unittest.mock import Mock, patch, mock_open
 from datetime import datetime
 import configparser
 import os
-from app_window import TaskAnalyzerGUI
-from version import VERSION
+from app.app_window import TaskAnalyzerGUI
+from app import __version__ as VERSION
 
 
 @pytest.fixture
 def mock_tk():
-    with patch('app_window.tk.Tk') as mock_tk_class:
+    with patch('app.app_window.tk.Tk') as mock_tk_class:
         root = Mock()
         root.title = Mock()
         root.geometry = Mock()
@@ -20,7 +20,7 @@ def mock_tk():
 
 @pytest.fixture
 def mock_date_entry():
-    with patch('app_window.DateEntry') as mock_date_entry_class:
+    with patch('app.app_window.DateEntry') as mock_date_entry_class:
         date_entry = Mock()
         date_entry.get_date = Mock()
         mock_date_entry_class.return_value = date_entry
@@ -47,8 +47,8 @@ def mock_config():
         for key, value in config[section].items():
             original_config[section][key] = value
 
-    with patch('app_window.load_config', return_value=config), \
-            patch('app_window.save_config') as mock_save:
+    with patch('app.app_window.load_config', return_value=config), \
+            patch('app.app_window.save_config') as mock_save:
         yield config
         restore_config(config, original_config)
 
@@ -67,7 +67,7 @@ def restore_config(config, original_config):
 
 @pytest.fixture
 def mock_analyzer():
-    with patch('app_window.TaskAnalyzer') as mock_task_analyzer:
+    with patch('app.app_window.TaskAnalyzer') as mock_task_analyzer:
         analyzer = Mock()
         mock_task_analyzer.return_value = analyzer
         yield analyzer
@@ -75,7 +75,7 @@ def mock_analyzer():
 
 @pytest.fixture
 def mock_messagebox():
-    with patch('app_window.messagebox') as mock_msg:
+    with patch('app.app_window.messagebox') as mock_msg:
         # showerrorのデフォルト実装を設定
         mock_msg.showerror = Mock()
         yield mock_msg
@@ -83,10 +83,10 @@ def mock_messagebox():
 
 @pytest.fixture
 def gui(mock_tk, mock_config, mock_analyzer, mock_date_entry):
-    with patch('app_window.ttk.Frame'), \
-            patch('app_window.ttk.LabelFrame'), \
-            patch('app_window.ttk.Label'), \
-            patch('app_window.ttk.Button'):
+    with patch('app.app_window.ttk.Frame'), \
+            patch('app.app_window.ttk.LabelFrame'), \
+            patch('app.app_window.ttk.Label'), \
+            patch('app.app_window.ttk.Button'):
         gui = TaskAnalyzerGUI(mock_tk)
         yield gui
 
@@ -107,7 +107,7 @@ def test_analysis_error(gui, mock_config, mock_analyzer, mock_date_entry, mock_m
     gui.start_date.get_date.return_value = start_date
     gui.end_date.get_date.return_value = end_date
 
-    with patch('app_window.save_config'):
+    with patch('app.app_window.save_config'):
         gui.start_analysis()
 
     mock_messagebox.showerror.assert_called_with("エラー", error_message)
@@ -117,14 +117,14 @@ def test_open_config(gui, mock_config):
     """設定ファイルを開く機能のテスト"""
     test_config_path = 'test_config.ini'
 
-    with patch('app_window.subprocess.Popen') as mock_popen:
+    with patch('app.app_window.subprocess.Popen') as mock_popen:
         gui.open_config()
         mock_popen.assert_called_once_with(['notepad.exe', test_config_path])
 
 
 def test_open_config_error(gui, mock_config):
     """設定ファイルを開く際のエラーテスト"""
-    with patch('app_window.subprocess.Popen', side_effect=Exception("テストエラー")):
-        with patch('app_window.messagebox.showerror') as mock_error:
+    with patch('app.app_window.subprocess.Popen', side_effect=Exception("テストエラー")):
+        with patch('app.app_window.messagebox.showerror') as mock_error:
             gui.open_config()
             mock_error.assert_called_with("エラー", "設定ファイルを開けませんでした：\nテストエラー")
