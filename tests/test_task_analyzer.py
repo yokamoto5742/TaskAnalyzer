@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock, patch
 from datetime import datetime
 from service.service_task_analyzer import TaskAnalyzer

@@ -1,8 +1,7 @@
 import pytest
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, patch
 from datetime import datetime
 import configparser
-import os
 from app.app_window import TaskAnalyzerGUI
 from app import __version__ as VERSION
 
@@ -48,7 +47,7 @@ def mock_config():
             original_config[section][key] = value
 
     with patch('app.app_window.load_config', return_value=config), \
-            patch('app.app_window.save_config') as mock_save:
+            patch('app.app_window.save_config'):
         yield config
         restore_config(config, original_config)
 

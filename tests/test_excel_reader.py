@@ -26,7 +26,7 @@ def mock_workbook():
     wb = Workbook()
     
     # デフォルトシートを削除
-    wb.remove(wb.active)
+    wb.remove(wb.worksheets[0])
     
     # 3日分のシートを作成
     for day in range(1, 4):
@@ -75,7 +75,7 @@ def mock_workbook():
             sheet['C30'] = 30
     
     # 特殊なシートを追加
-    sheet_list = wb.create_sheet(title='シート一覧')
+    wb.create_sheet(title='シート一覧')
     
     # 一時ファイルに保存
     with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
@@ -90,6 +90,7 @@ class TestExcelTaskReader:
         # テスト用のワークブック作成
         wb = Workbook()
         sheet = wb.active
+        assert sheet is not None
         
         # テストデータ設定
         sheet['B1'] = 'テストタスク'
@@ -184,7 +185,7 @@ class TestExcelTaskReader:
         # 日付範囲を制限してテスト
         start_date = datetime(2024, 1, 2)
         end_date = datetime(2024, 1, 2)
-        tasks, daily_tasks, comm_tasks, all_items, actual_start_date, actual_end_date = reader.read_workbook(
+        tasks, _daily_tasks, _comm_tasks, _all_items, actual_start_date, actual_end_date = reader.read_workbook(
             mock_workbook, start_date, end_date
         )
         

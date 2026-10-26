@@ -1,5 +1,4 @@
 import pytest
-import tkinter as tk
 from unittest.mock import MagicMock, patch
 from main import main
 

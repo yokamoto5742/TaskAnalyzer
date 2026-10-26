@@ -1,7 +1,6 @@
 import pytest
 import os
 import tempfile
-from pathlib import Path
 from datetime import datetime
 import polars as pl
 from openpyxl import load_workbook, Workbook
@@ -78,6 +77,7 @@ def mock_template():
 
         # デフォルトシートの名前変更
         default_sheet = wb.active
+        assert default_sheet is not None
         default_sheet.title = 'Sheet'
 
         # テンプレートに必要なシートを追加

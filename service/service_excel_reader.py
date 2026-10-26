@@ -1,7 +1,6 @@
 import re
 from datetime import datetime
 from openpyxl import load_workbook
-from pathlib import Path
 
 
 class ExcelTaskReader:
