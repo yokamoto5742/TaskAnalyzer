@@ -83,6 +83,10 @@ def mock_workbook():
         return tmp.name
 
 
+def reader_contents(reader, wb):
+    return [item['content'] for item in reader.load_excel_sheet_all_items(wb, 'シート1', datetime(2024, 1, 1))]
+
+
 class TestExcelTaskReader:
     def test_extract_cell_data(self, mock_config):
         reader = ExcelTaskReader(mock_config)
@@ -160,7 +164,18 @@ class TestExcelTaskReader:
         # 検証
         assert len(all_items) == 4  # クラーク業務2つ + デイリータスク2つ
 
-    def test_read_workbook(self, mock_config, mock_workbook):
+    def test_load_excel_sheet_all_items_removes_name(self, mock_config, mock_workbook):
+        """全項目に含まれるコミュニケーション行は、空白がなくても名前を除いて集計すること"""
+        mock_config['Analysis']['daily_task_end_row'] = '35'
+        wb = self.__load_workbook(mock_workbook)
+
+        all_items = reader_contents(ExcelTaskReader(mock_config), wb)
+
+        assert '打合せ' in all_items
+        assert 'レビュー' in all_items
+        assert not any('(' in content for content in all_items)
+
+    def test_read_workbook(self,mock_config, mock_workbook):
         reader = ExcelTaskReader(mock_config)
         
         # テスト実行

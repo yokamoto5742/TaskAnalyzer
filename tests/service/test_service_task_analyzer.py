@@ -8,31 +8,6 @@ class TestTaskAnalyzer:
     @patch('service.service_task_analyzer.ExcelTaskReader')
     @patch('service.service_task_analyzer.TaskDataAnalyzer')
     @patch('service.service_task_analyzer.ExcelResultWriter')
-    def test_initialization(self, mock_writer, mock_analyzer, mock_reader, mock_load_config):
-        # モックの設定
-        mock_config = {
-            'PATHS': {
-                'input_file_path': 'test_input.xlsx',
-                'template_path': 'test_template.xlsx',
-                'output_dir': 'test_output'
-            }
-        }
-        mock_load_config.return_value = mock_config
-        
-        # テスト実行
-        analyzer = TaskAnalyzer()
-        
-        # 検証
-        assert analyzer.config == mock_config
-        assert analyzer.paths_config == mock_config['PATHS']
-        mock_reader.assert_called_once_with(mock_config)
-        mock_analyzer.assert_called_once()
-        mock_writer.assert_called_once()
-
-    @patch('service.service_task_analyzer.load_config')
-    @patch('service.service_task_analyzer.ExcelTaskReader')
-    @patch('service.service_task_analyzer.TaskDataAnalyzer')
-    @patch('service.service_task_analyzer.ExcelResultWriter')
     def test_run_analysis_success(self, mock_writer_class, mock_analyzer_class, mock_reader_class, mock_load_config):
         # モックの設定
         mock_config = {
@@ -112,18 +87,33 @@ class TestTaskAnalyzer:
         )
 
     @patch('service.service_task_analyzer.load_config')
-    def test_run_analysis_date_format_error(self, mock_load_config):
-        # モックの設定
-        mock_config = {'PATHS': {}}
-        mock_load_config.return_value = mock_config
-        
-        # テスト実行 - 不正な日付形式
-        analyzer = TaskAnalyzer()
-        success, message = analyzer.run_analysis('2024/01/01', '2024-01-05')
-        
-        # 検証
+    @patch('service.service_task_analyzer.ExcelTaskReader')
+    def test_run_analysis_no_data_message(self, mock_reader_class, mock_load_config):
+        """データがないときに「日付の形式」のエラーと表示されないこと"""
+        mock_load_config.return_value = {'PATHS': {'input_file_path': 'test_input.xlsx'}}
+        mock_reader_class.return_value.read_workbook.side_effect = ValueError('指定された期間内のデータがありません')
+
+        success, message = TaskAnalyzer().run_analysis('2024-01-01', '2024-01-05')
+
         assert success is False
-        assert '日付の形式が正しくありません' in message
+        assert '指定された期間内のデータがありません' in message
+        assert '日付の形式' not in message
+
+    @patch('service.service_task_analyzer.load_config')
+    @patch('service.service_task_analyzer.ExcelTaskReader')
+    @patch('service.service_task_analyzer.TaskDataAnalyzer')
+    @patch('service.service_task_analyzer.ExcelResultWriter')
+    def test_run_analysis_reloads_config(self, _mock_writer, _mock_analyzer, mock_reader_class, mock_load_config):
+        """起動後に設定ファイルを編集しても、分析時点の内容が使われること"""
+        mock_load_config.return_value = {'PATHS': {'input_file_path': 'old.xlsx'}}
+        analyzer = TaskAnalyzer()
+        mock_load_config.return_value = {
+            'PATHS': {'input_file_path': 'new.xlsx', 'template_path': 't.xlsx', 'output_dir': 'out'}}
+        mock_reader_class.return_value.read_workbook.return_value = ([], [], [], [], '20240101', '20240105')
+
+        analyzer.run_analysis('2024-01-01', '2024-01-05')
+
+        assert mock_reader_class.return_value.read_workbook.call_args.args[0] == 'new.xlsx'
 
     @patch('service.service_task_analyzer.load_config')
     @patch('service.service_task_analyzer.ExcelTaskReader')

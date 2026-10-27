@@ -147,6 +147,24 @@ def test_analysis_error(gui, mock_config, mock_analyzer, mock_date_entry, mock_m
     assert mock_config['Analysis']['year_start_month'] == '1'
 
 
+def test_analysis_keeps_config_edited_after_start(gui, mock_analyzer, mock_date_entry, mock_messagebox):
+    """起動後にメモ帳で編集した設定が、分析開始時の保存で消えないこと"""
+    mock_analyzer.run_analysis.return_value = (True, '')
+    mock_date_entry.get.side_effect = ['2025/02/01', '2025/02/28']
+    edited_config = configparser.ConfigParser()
+    edited_config['PATHS'] = {'input_file_path': 'edited.xlsx'}
+    edited_config['Analysis'] = {'start_row': '4'}
+
+    with patch('app.app_window.load_config', return_value=edited_config), \
+            patch('app.app_window.save_config') as mock_save:
+        gui.start_analysis()
+
+    saved_config = mock_save.call_args.args[0]
+    assert saved_config['PATHS']['input_file_path'] == 'edited.xlsx'
+    assert saved_config['Analysis']['start_row'] == '4'
+    assert saved_config['Analysis']['start_date'] == '2025-02-01'
+
+
 def test_analysis_invalid_date(gui, mock_analyzer, mock_date_entry, mock_messagebox):
     """yyyy/mm/dd 以外の入力はエラーになること"""
     mock_date_entry.get.side_effect = ['2025-02-01', '2025/02/28']

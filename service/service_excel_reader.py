@@ -95,10 +95,15 @@ class ExcelTaskReader:
 
         start_row = self.config.getint('Analysis', 'start_row')
         end_row = self.config.getint('Analysis', 'daily_task_end_row')
+        comm_rows = range(self.config.getint('Analysis', 'communication_start_row'),
+                          self.config.getint('Analysis', 'communication_end_row') + 1)
 
         for row in range(start_row, end_row + 1):
             data = self.extract_cell_data(sheet, row, date)
             if data:
+                if row in comm_rows:
+                    # コミュニケーション行は「内容(名前)」形式なので名前を除く
+                    data['content'] = re.sub(r'\(.*?\)', '', sheet[f'B{row}'].value).split()[0]
                 all_items.append(data)
 
         return all_items

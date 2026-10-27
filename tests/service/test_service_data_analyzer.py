@@ -111,7 +111,25 @@ class TestTaskDataAnalyzer:
         tanaka_meeting = result.filter((pl.col('name') == '田中') & (pl.col('content') == '打合せ'))
         assert tanaka_meeting.select('total_minutes')[0, 0] == 55
 
-    def test_analyze_task_data(self, sample_tasks, sample_daily_tasks, sample_communication_tasks, sample_all_items):
+    def test_analyze_task_data_with_empty_lists(self, sample_tasks):
+        """コミュニケーション・デイリータスクが 0 件の期間でも集計できること"""
+        results = TaskDataAnalyzer().analyze_task_data(sample_tasks, [], [], sample_tasks)
+
+        _, _, daily_tasks_agg, communication_by_name, communication_by_content, _ = results
+        assert len(daily_tasks_agg) == 0
+        assert len(communication_by_name) == 0
+        assert communication_by_content.columns == [
+            'content', 'name', 'total_minutes', 'total_hours', 'frequency']
+
+    def test_total_hours_is_not_truncated(self):
+        """90 分は 1 時間に切り捨てず 1.5 時間になること"""
+        tasks = [{'date': '2024-01-01', 'content': '会議', 'minutes': 90}]
+
+        result = TaskDataAnalyzer().analyze_task_data(tasks, tasks, [], tasks)[1]
+
+        assert result['total_hours'][0] == 1.5
+
+    def test_analyze_task_data(self,sample_tasks, sample_daily_tasks, sample_communication_tasks, sample_all_items):
         # テスト準備
         analyzer = TaskDataAnalyzer()
         

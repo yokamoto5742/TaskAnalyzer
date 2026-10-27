@@ -6,20 +6,17 @@ from service.service_excel_writer import ExcelResultWriter
 
 
 class TaskAnalyzer:
-    def __init__(self):
-        self.config = load_config()
-        self.paths_config = self.config['PATHS']
-        self.reader = ExcelTaskReader(self.config)
-        self.analyzer = TaskDataAnalyzer()
-        self.writer = ExcelResultWriter()
-
     def run_analysis(self, start_date_str, end_date_str):
         try:
+            # 起動後に設定ファイルが編集されていても反映されるよう、実行のたびに読み込む
+            config = load_config()
+            paths_config = config['PATHS']
+
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
 
-            tasks, daily_tasks, comm_tasks, all_items, actual_start_date_str, actual_end_date_str = self.reader.read_workbook(
-                self.paths_config['input_file_path'],
+            tasks, daily_tasks, comm_tasks, all_items, actual_start_date_str, actual_end_date_str = ExcelTaskReader(config).read_workbook(
+                paths_config['input_file_path'],
                 start_date,
                 end_date
             )
@@ -27,21 +24,19 @@ class TaskAnalyzer:
             actual_start_date = datetime.strptime(actual_start_date_str, '%Y%m%d')
             actual_end_date = datetime.strptime(actual_end_date_str, '%Y%m%d')
 
-            analysis_results = self.analyzer.analyze_task_data(
+            analysis_results = TaskDataAnalyzer().analyze_task_data(
                 tasks, daily_tasks, comm_tasks, all_items
             )
 
-            output_file = self.writer.save_results(
+            output_file = ExcelResultWriter().save_results(
                 analysis_results,
-                self.paths_config['template_path'],
-                self.paths_config['output_dir'],
+                paths_config['template_path'],
+                paths_config['output_dir'],
                 actual_start_date,
                 actual_end_date
             )
 
             return True, f"分析が完了しました。結果は {output_file} に保存されました。"
 
-        except ValueError as ve:
-            return False, f"日付の形式が正しくありません: {str(ve)}"
         except Exception as e:
             return False, f"分析中にエラーが発生しました: {str(e)}"

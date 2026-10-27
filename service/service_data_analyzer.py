@@ -1,13 +1,17 @@
 import polars as pl
 
+# 0 件でも列を持たせるためにスキーマを指定する(日付は集計に使わないので読み込まない)
+TASK_SCHEMA = {'content': pl.String, 'minutes': pl.Float64}
+COMMUNICATION_SCHEMA = {**TASK_SCHEMA, 'name': pl.String}
+
 
 class TaskDataAnalyzer:
     @staticmethod
     def create_dataframes(tasks, daily_tasks, communication_tasks, all_items):
-        df = pl.DataFrame(tasks)
-        daily_df = pl.DataFrame(daily_tasks)
-        comm_df = pl.DataFrame(communication_tasks)
-        all_items_df = pl.DataFrame(all_items)
+        df = pl.DataFrame(tasks, schema=TASK_SCHEMA)
+        daily_df = pl.DataFrame(daily_tasks, schema=TASK_SCHEMA)
+        comm_df = pl.DataFrame(communication_tasks, schema=COMMUNICATION_SCHEMA)
+        all_items_df = pl.DataFrame(all_items, schema=TASK_SCHEMA)
         
         return df, daily_df, comm_df, all_items_df
 
@@ -22,7 +26,7 @@ class TaskDataAnalyzer:
                 data_frame.group_by(['name', group_by_col])
                 .agg([
                     pl.col('minutes').sum().alias('total_minutes'),
-                    (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
+                    (pl.col('minutes').sum() / 60).round(1).alias('total_hours'),
                     pl.col('minutes').count().alias('frequency')
                 ])
                 .sort(['name', 'total_minutes'], descending=[False, True])
@@ -32,7 +36,7 @@ class TaskDataAnalyzer:
             data_frame.group_by(group_by_col)
             .agg([
                 pl.col('minutes').sum().alias('total_minutes'),
-                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
+                (pl.col('minutes').sum() / 60).round(1).alias('total_hours'),
                 pl.col('minutes').count().alias('frequency')
             ])
             .sort('total_minutes', descending=True)
@@ -67,7 +71,7 @@ class TaskDataAnalyzer:
             comm_df.group_by(['content', 'name'])
             .agg([
                 pl.col('minutes').sum().alias('total_minutes'),
-                (pl.col('minutes').sum() / 60).cast(pl.Int64).alias('total_hours'),
+                (pl.col('minutes').sum() / 60).round(1).alias('total_hours'),
                 pl.col('minutes').count().alias('frequency')
             ])
             .sort(['name', 'total_minutes'], descending=[False, True])

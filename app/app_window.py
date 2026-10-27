@@ -116,10 +116,8 @@ class TaskAnalyzerGUI:
                 messagebox.showerror(constants.ERROR_TITLE, constants.START_AFTER_END_MESSAGE)
                 return
 
-            # 設定の保存
-            if 'Analysis' not in self.config:
-                self.config.add_section('Analysis')
-
+            # メモ帳での編集を消さないよう、保存直前に読み直す
+            self.config = load_config()
             self.config['Analysis'].update({
                 'start_date': start_date.strftime('%Y-%m-%d'),
                 'end_date': end_date.strftime('%Y-%m-%d'),
