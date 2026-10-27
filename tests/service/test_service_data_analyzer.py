@@ -1,6 +1,6 @@
 import pytest
 import polars as pl
-from service.service_data_analyzer import TaskDataAnalyzer
+from service.service_data_analyzer import TaskDataAnalyzer, summarize
 
 
 @pytest.fixture
@@ -45,72 +45,25 @@ def sample_all_items():
     ]
 
 
+def test_summarize(sample_tasks):
+    result = summarize(pl.DataFrame(sample_tasks), ['content'])
+
+    assert result.columns == ['content', 'total_minutes', 'total_hours', 'frequency']
+    assert result['content'].to_list() == ['資料作成', '会議', 'クラーク業務A', 'クラーク業務B']
+    clerk_a = result.filter(pl.col('content') == 'クラーク業務A')
+    assert clerk_a['total_minutes'][0] == 55
+    assert clerk_a['frequency'][0] == 2
+
+
+def test_summarize_by_two_keys(sample_communication_tasks):
+    result = summarize(pl.DataFrame(sample_communication_tasks), ['content', 'name'])
+
+    assert result.columns[:2] == ['content', 'name']
+    tanaka_meeting = result.filter((pl.col('name') == '田中') & (pl.col('content') == '打合せ'))
+    assert tanaka_meeting['total_minutes'][0] == 55
+
+
 class TestTaskDataAnalyzer:
-    def test_create_dataframes(self, sample_tasks, sample_daily_tasks, sample_communication_tasks, sample_all_items):
-        # テスト実行
-        df, daily_df, comm_df, all_items_df = TaskDataAnalyzer.create_dataframes(
-            sample_tasks, sample_daily_tasks, sample_communication_tasks, sample_all_items
-        )
-        
-        # 検証
-        assert isinstance(df, pl.DataFrame)
-        assert isinstance(daily_df, pl.DataFrame)
-        assert isinstance(comm_df, pl.DataFrame)
-        assert isinstance(all_items_df, pl.DataFrame)
-        
-        assert len(df) == len(sample_tasks)
-        assert len(daily_df) == len(sample_daily_tasks)
-        assert len(comm_df) == len(sample_communication_tasks)
-        assert len(all_items_df) == len(sample_all_items)
-
-    def test_aggregate_dataframe_without_filter(self, sample_tasks):
-        # テスト準備
-        df = pl.DataFrame(sample_tasks)
-        
-        # テスト実行
-        result = TaskDataAnalyzer.aggregate_dataframe(df)
-        
-        # 検証
-        assert isinstance(result, pl.DataFrame)
-        assert 'content' in result.columns
-        assert 'total_minutes' in result.columns
-        assert 'total_hours' in result.columns
-        assert 'frequency' in result.columns
-        
-        # 合計時間の確認
-        assert result.filter(pl.col('content') == 'クラーク業務A').select('total_minutes')[0, 0] == 55
-        
-        # 頻度の確認
-        assert result.filter(pl.col('content') == 'クラーク業務A').select('frequency')[0, 0] == 2
-
-    def test_aggregate_dataframe_with_filter(self, sample_tasks):
-        # テスト準備
-        df = pl.DataFrame(sample_tasks)
-        
-        # テスト実行：クラーク業務のみフィルタリング
-        result = TaskDataAnalyzer.aggregate_dataframe(
-            df, filter_condition=pl.col('content').str.contains('クラーク業務')
-        )
-        
-        # 検証
-        assert len(result) == 2  # クラーク業務AとB
-        assert set(result['content'].to_list()) == {'クラーク業務A', 'クラーク業務B'}
-
-    def test_aggregate_dataframe_with_name_column(self, sample_communication_tasks):
-        # テスト準備
-        df = pl.DataFrame(sample_communication_tasks)
-        
-        # テスト実行
-        result = TaskDataAnalyzer.aggregate_dataframe(df)
-        
-        # 検証
-        assert 'name' in result.columns
-        assert len(result) == 3  # 3つの組み合わせ
-        
-        # 田中+打合せの合計時間
-        tanaka_meeting = result.filter((pl.col('name') == '田中') & (pl.col('content') == '打合せ'))
-        assert tanaka_meeting.select('total_minutes')[0, 0] == 55
-
     def test_analyze_task_data_with_empty_lists(self, sample_tasks):
         """コミュニケーション・デイリータスクが 0 件の期間でも集計できること"""
         results = TaskDataAnalyzer().analyze_task_data(sample_tasks, [], [], sample_tasks)
@@ -129,7 +82,7 @@ class TestTaskDataAnalyzer:
 
         assert result['total_hours'][0] == 1.5
 
-    def test_analyze_task_data(self,sample_tasks, sample_daily_tasks, sample_communication_tasks, sample_all_items):
+    def test_analyze_task_data(self, sample_tasks, sample_daily_tasks, sample_communication_tasks, sample_all_items):
         # テスト準備
         analyzer = TaskDataAnalyzer()
         
@@ -155,6 +108,9 @@ class TestTaskDataAnalyzer:
         
         # コミュニケーション（内容別）の確認
         assert len(communication_by_content) == 3
+        assert communication_by_content.columns == [
+            'content', 'name', 'total_minutes', 'total_hours', 'frequency']
+        assert communication_by_content['name'].to_list() == sorted(communication_by_content['name'].to_list())
         
         # 全項目の確認
         assert len(all_items_summary) == 4

@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-27
+### 変更
+- 結果の書き込みで 6 シート分の同じループを 1 つにまとめる。Excel の起動を `os.system('start excel ...')` から `os.startfile` にする
+- 集計式を `summarize` 関数に一本化し、`create_dataframes` と `aggregate_dataframe` を削除
+- WILLDO リストの読み込みで行範囲ごとのループと時間の変換処理を共通化
+
+### 削除
+- どこからも使われていない `utils/utils.py` を削除
+
+### テスト
+- `tests/test_excel_result_writer.py` を `tests/service/test_service_excel_writer.py` へ移動
+
 ## [1.1.1] - 2026-10-27
 ### 修正
 - 起動後に「設定ファイル」で編集した内容が、「分析開始」で起動時の内容に上書きされていた問題を修正。分析のたびに設定を読み直す

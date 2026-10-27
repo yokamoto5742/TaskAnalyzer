@@ -151,7 +151,19 @@ class TestExcelTaskReader:
         assert comm_tasks[0]['content'] == '打合せ'
         assert comm_tasks[0]['minutes'] == 30
 
-    def test_load_excel_sheet_all_items(self, mock_config, mock_workbook):
+    def test_load_excel_task_data_communication_formats(self, mock_config):
+        """空白区切りの名前も読み取り、名前のない行はコミュニケーションに含めないこと"""
+        wb = Workbook()
+        sheet = wb.active
+        assert sheet is not None
+        sheet['B30'], sheet['C30'] = '打合せ 補足 (田中)', 20
+        sheet['B31'], sheet['C31'] = '雑談', 10
+
+        _, _, comm_tasks = ExcelTaskReader(mock_config).load_excel_task_data(wb, sheet.title, datetime(2024, 1, 1))
+
+        assert [(task['content'], task['name']) for task in comm_tasks] == [('打合せ', '田中')]
+
+    def test_load_excel_sheet_all_items(self,mock_config, mock_workbook):
         reader = ExcelTaskReader(mock_config)
         wb = self.__load_workbook(mock_workbook) # テスト用のワークブックを読み込む
         

@@ -110,8 +110,9 @@ def mock_output_dir():
 
 class TestExcelResultWriter:
     def test_save_results(self, mock_analysis_results, mock_template, mock_output_dir, monkeypatch):
-        # os.system呼び出しをモック化
-        monkeypatch.setattr(os, 'system', lambda cmd: None)
+        # Excel が起動しないようにモック化
+        opened_files = []
+        monkeypatch.setattr(os, 'startfile', opened_files.append, raising=False)
 
         # テスト日付
         start_date = datetime(2024, 1, 1)
@@ -143,5 +144,10 @@ class TestExcelResultWriter:
         assert clerk_sheet.cell(row=2, column=1).value == 'クラーク業務A'
         assert clerk_sheet.cell(row=2, column=2).value == 55
 
+        # 6 つの集計結果がそれぞれのシートに書かれていること
+        assert wb['コミュニケーション内容'].cell(row=2, column=2).value == '田中'
+        assert wb['全項目'].cell(row=5, column=1).value == '資料作成'
+
         # ファイル名の確認（日付フォーマット）
         assert '20240101_20240103' in output_file
+        assert [str(path) for path in opened_files] == [output_file]
