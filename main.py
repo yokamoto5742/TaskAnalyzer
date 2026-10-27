@@ -1,8 +1,9 @@
 import tkinter as tk
+
 from app.app_window import TaskAnalyzerGUI
 
 
-def main():
+def main() -> None:
     root = tk.Tk()
     TaskAnalyzerGUI(root)
     root.mainloop()

@@ -7,6 +7,22 @@
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-10-27
+### 変更
+- 日付を文字列に変換せず `date` のまま GUI → 読み込み → 書き込みへ渡す
+- `read_workbook` の戻り値を 6 要素のタプルから `WorkbookData` データクラスにし、読み込んだ行を `TaskRecord` / `CommunicationRecord` で型付けする
+- エラーの表示を GUI 側に一本化。`TaskAnalyzer.run_analysis` は保存先のパスを返し、エラーはそのまま送出する
+- 期間内にデータがないときは「指定された期間内のデータがありません。」と表示する(`NoDataError`)
+- エラーメッセージを `app/constants.py` に追加し、使われなくなった `UNEXPECTED_ERROR_MESSAGE` を `ANALYSIS_ERROR_MESSAGE` に置き換える
+- 開始日・終了日の入力欄の生成を `_create_date_entry` にまとめ、ラベルを「開始日」「終了日」にそろえる
+- `app/`・`service/`・`main.py`・`build.py` に型ヒントを追加し、import 順をルールに合わせる
+- シート名などのマジック文字列をモジュール先頭の定数にする
+- windowed の exe では見えない `print` によるエラー出力と、`config_manager` の `print` して再送出するだけの例外処理を削除
+- `build.py` でビルドに失敗したら止まるようにする(`check=True`)
+
+### ドキュメント
+- README のファイル構成から削除した `utils/utils.py` を外し、`app/constants.py` と `utils/date_period.py` を追加
+
 ## [1.1.2] - 2026-10-27
 ### 変更
 - 結果の書き込みで 6 シート分の同じループを 1 つにまとめる。Excel の起動を `os.system('start excel ...')` から `os.startfile` にする

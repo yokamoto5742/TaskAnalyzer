@@ -24,12 +24,13 @@ uv sync
 - `main.py`: アプリケーションのエントリーポイント
 - `app/__init__.py`: アプリケーションのバージョン情報(`__version__`)
 - `app/app_window.py`: GUIの実装
+- `app/constants.py`: 画面に表示するメッセージ
 - `service/service_task_analyzer.py`: 分析の全体的な処理の実装
 - `service/service_excel_reader.py`: Excelファイルの読み込み処理
 - `service/service_data_analyzer.py`: データの集計・分析ロジック
 - `service/service_excel_writer.py`: 分析結果のExcel出力処理
-- `utils/utils.py`: ユーティリティ関数
 - `utils/config_manager.py`: 設定ファイル管理
+- `utils/date_period.py`: 期間(月・四半期など)から開始日と終了日を求める処理
 - `utils/config.ini`: 設定ファイル
 - `build.py`: PyInstallerによる実行ファイルのビルド
 
@@ -95,7 +96,7 @@ uv run python main.py
 1. 新しい分析項目の追加
    - `service_data_analyzer.py`の`analyze_task_data`メソッドに新しい分析ロジックを追加
    - テンプレートExcelファイルに新しいシートを追加
-   - `service_excel_writer.py`の`save_results`メソッドに新しいシートへの書き込み処理を追加
+   - `service_excel_writer.py`の`SHEET_NAMES`に、`analyze_task_data`の戻り値と同じ順で新しいシート名を追加
 
 2. GUIの拡張
    - `app_window.py`の`_setup_gui`メソッドを修正
@@ -103,7 +104,6 @@ uv run python main.py
 
 3. データ処理の拡張
    - `service_excel_reader.py`を拡張して新しいデータの読み込み処理を追加
-   - `utils/utils.py`に共通のユーティリティ関数を追加
 
 ## 実装の詳細
 ### データ処理

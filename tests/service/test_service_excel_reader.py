@@ -1,9 +1,13 @@
-import pytest
-import tempfile
+
+
 import configparser
-from datetime import datetime
-from openpyxl import Workbook
-from service.service_excel_reader import ExcelTaskReader
+import tempfile
+from datetime import date, datetime
+
+import pytest
+from openpyxl import Workbook, load_workbook
+
+from service.service_excel_reader import ExcelTaskReader, NoDataError, parse_sheet_date
 
 
 @pytest.fixture
@@ -83,69 +87,42 @@ def mock_workbook():
         return tmp.name
 
 
-def reader_contents(reader, wb):
-    return [item['content'] for item in reader.load_excel_sheet_all_items(wb, 'シート1', datetime(2024, 1, 1))]
+@pytest.fixture
+def first_sheet(mock_workbook):
+    return load_workbook(filename=mock_workbook)['シート1']
 
 
 class TestExcelTaskReader:
     def test_extract_cell_data(self, mock_config):
         reader = ExcelTaskReader(mock_config)
-        
-        # テスト用のワークブック作成
-        wb = Workbook()
-        sheet = wb.active
+        sheet = Workbook().active
         assert sheet is not None
-        
-        # テストデータ設定
-        sheet['B1'] = 'テストタスク'
-        sheet['C1'] = 30
-        
+        sheet['B1'], sheet['C1'] = 'テストタスク 補足', 30
         # 無効なデータ
-        sheet['B2'] = 'テストタスク'
-        sheet['C2'] = '*'
-        
-        sheet['B3'] = None
-        sheet['C3'] = 30
-        
-        sheet['B4'] = 'テストタスク'
-        sheet['C4'] = 'abc'  # 数値に変換できない
-        
-        # テスト実行
-        date = datetime(2024, 1, 1)
-        result1 = reader.extract_cell_data(sheet, 1, date)
-        result2 = reader.extract_cell_data(sheet, 2, date)
-        result3 = reader.extract_cell_data(sheet, 3, date)
-        result4 = reader.extract_cell_data(sheet, 4, date)
-        
-        # 検証
-        assert result1 is not None
-        assert result1['content'] == 'テストタスク'
-        assert result1['minutes'] == 30
-        assert result1['date'] == date
-        
-        # 無効なデータは None を返す
-        assert result2 is None
-        assert result3 is None
-        assert result4 is None
+        sheet['B2'], sheet['C2'] = 'テストタスク', '*'
+        sheet['B3'], sheet['C3'] = None, 30
+        sheet['B4'], sheet['C4'] = 'テストタスク', 'abc'  # 数値に変換できない
+        sheet['B5'], sheet['C5'] = '(田中)', 30  # 名前を除くと内容が空になる
 
-    def test_load_excel_task_data(self, mock_config, mock_workbook):
-        reader = ExcelTaskReader(mock_config)
-        wb = self.__load_workbook(mock_workbook) # テスト用のワークブックを読み込む
-        
-        # 日付
-        date = datetime(2024, 1, 1)
-        
-        # テスト実行
-        tasks, daily_tasks, comm_tasks = reader.load_excel_task_data(wb, 'シート1', date)
-        
-        # 検証
+        sheet_date = date(2024, 1, 1)
+        result = reader.extract_cell_data(sheet, 1, sheet_date)
+
+        assert result == {'date': sheet_date, 'content': 'テストタスク', 'minutes': 30}
+        for row in (2, 3, 4):
+            assert reader.extract_cell_data(sheet, row, sheet_date) is None
+        assert reader.extract_cell_data(sheet, 5, sheet_date, remove_name=True) is None
+
+    def test_load_excel_task_data(self, mock_config, first_sheet):
+        tasks, daily_tasks, comm_tasks = ExcelTaskReader(mock_config).load_excel_task_data(
+            first_sheet, date(2024, 1, 1))
+
         assert len(tasks) == 2
         assert tasks[0]['content'] == 'クラーク業務A'
         assert tasks[0]['minutes'] == 30
-        
+
         assert len(daily_tasks) == 2
         assert daily_tasks[0]['content'] == '毎日タスクA'
-        
+
         assert len(comm_tasks) == 2
         assert comm_tasks[0]['name'] == '田中'
         assert comm_tasks[0]['content'] == '打合せ'
@@ -153,75 +130,61 @@ class TestExcelTaskReader:
 
     def test_load_excel_task_data_communication_formats(self, mock_config):
         """空白区切りの名前も読み取り、名前のない行はコミュニケーションに含めないこと"""
-        wb = Workbook()
-        sheet = wb.active
+        sheet = Workbook().active
         assert sheet is not None
         sheet['B30'], sheet['C30'] = '打合せ 補足 (田中)', 20
         sheet['B31'], sheet['C31'] = '雑談', 10
 
-        _, _, comm_tasks = ExcelTaskReader(mock_config).load_excel_task_data(wb, sheet.title, datetime(2024, 1, 1))
+        _, _, comm_tasks = ExcelTaskReader(mock_config).load_excel_task_data(sheet, date(2024, 1, 1))
 
         assert [(task['content'], task['name']) for task in comm_tasks] == [('打合せ', '田中')]
 
-    def test_load_excel_sheet_all_items(self,mock_config, mock_workbook):
-        reader = ExcelTaskReader(mock_config)
-        wb = self.__load_workbook(mock_workbook) # テスト用のワークブックを読み込む
-        
-        # 日付
-        date = datetime(2024, 1, 1)
-        
-        # テスト実行
-        all_items = reader.load_excel_sheet_all_items(wb, 'シート1', date)
-        
-        # 検証
+    def test_load_excel_sheet_all_items(self, mock_config, first_sheet):
+        all_items = ExcelTaskReader(mock_config).load_excel_sheet_all_items(first_sheet, date(2024, 1, 1))
+
         assert len(all_items) == 4  # クラーク業務2つ + デイリータスク2つ
 
-    def test_load_excel_sheet_all_items_removes_name(self, mock_config, mock_workbook):
+    def test_load_excel_sheet_all_items_removes_name(self, mock_config, first_sheet):
         """全項目に含まれるコミュニケーション行は、空白がなくても名前を除いて集計すること"""
         mock_config['Analysis']['daily_task_end_row'] = '35'
-        wb = self.__load_workbook(mock_workbook)
 
-        all_items = reader_contents(ExcelTaskReader(mock_config), wb)
+        all_items = ExcelTaskReader(mock_config).load_excel_sheet_all_items(first_sheet, date(2024, 1, 1))
 
-        assert '打合せ' in all_items
-        assert 'レビュー' in all_items
-        assert not any('(' in content for content in all_items)
+        contents = [item['content'] for item in all_items]
+        assert '打合せ' in contents
+        assert 'レビュー' in contents
+        assert not any('(' in content for content in contents)
 
-    def test_read_workbook(self,mock_config, mock_workbook):
-        reader = ExcelTaskReader(mock_config)
-        
-        # テスト実行
-        start_date = datetime(2024, 1, 1)
-        end_date = datetime(2024, 1, 3)
-        tasks, daily_tasks, comm_tasks, all_items, actual_start_date, actual_end_date = reader.read_workbook(
-            mock_workbook, start_date, end_date
-        )
-        
-        # 検証
-        assert len(tasks) == 5
-        assert len(daily_tasks) == 4
-        assert len(comm_tasks) == 5
-        assert len(all_items) == 9
-        
-        assert actual_start_date == '20240101'
-        assert actual_end_date == '20240103'
-        
+    def test_read_workbook(self, mock_config, mock_workbook):
+        workbook_data = ExcelTaskReader(mock_config).read_workbook(
+            mock_workbook, date(2024, 1, 1), date(2024, 1, 3))
+
+        assert len(workbook_data.tasks) == 5
+        assert len(workbook_data.daily_tasks) == 4
+        assert len(workbook_data.communication_tasks) == 5
+        assert len(workbook_data.all_items) == 9
+        assert workbook_data.first_date == date(2024, 1, 1)
+        assert workbook_data.last_date == date(2024, 1, 3)
+
     def test_read_workbook_date_filter(self, mock_config, mock_workbook):
-        reader = ExcelTaskReader(mock_config)
-        
-        # 日付範囲を制限してテスト
-        start_date = datetime(2024, 1, 2)
-        end_date = datetime(2024, 1, 2)
-        tasks, _daily_tasks, _comm_tasks, _all_items, actual_start_date, actual_end_date = reader.read_workbook(
-            mock_workbook, start_date, end_date
-        )
-        
-        # 検証 - 1日分のデータのみ
-        assert len(tasks) == 2
-        assert actual_start_date == '20240102'
-        assert actual_end_date == '20240102'
-        
-    def __load_workbook(self, mock_workbook):
-        """テスト用のヘルパーメソッド（ExcelTaskReaderの非公開メソッドを模倣）"""
-        from openpyxl import load_workbook
-        return load_workbook(filename=mock_workbook)
+        workbook_data = ExcelTaskReader(mock_config).read_workbook(
+            mock_workbook, date(2024, 1, 2), date(2024, 1, 2))
+
+        # 1日分のデータのみ
+        assert len(workbook_data.tasks) == 2
+        assert workbook_data.first_date == date(2024, 1, 2)
+        assert workbook_data.last_date == date(2024, 1, 2)
+
+    def test_read_workbook_no_data(self, mock_config, mock_workbook):
+        with pytest.raises(NoDataError):
+            ExcelTaskReader(mock_config).read_workbook(mock_workbook, date(2025, 1, 1), date(2025, 1, 31))
+
+
+@pytest.mark.parametrize("value, expected", [
+    ('2024年1月2日', date(2024, 1, 2)),
+    (datetime(2024, 1, 2, 9, 30), date(2024, 1, 2)),
+    ('目次', None),
+    (None, None),
+])
+def test_parse_sheet_date(value, expected):
+    assert parse_sheet_date(value) == expected

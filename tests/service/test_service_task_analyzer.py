@@ -1,143 +1,65 @@
-from unittest.mock import MagicMock, patch
-from datetime import datetime
+from datetime import date
+from unittest.mock import patch
+
+import pytest
+
+from service.service_excel_reader import WorkbookData
 from service.service_task_analyzer import TaskAnalyzer
+
+PATHS = {'input_file_path': 'test_input.xlsx', 'template_path': 'test_template.xlsx', 'output_dir': 'test_output'}
+
+
+@pytest.fixture
+def mocks():
+    with patch('service.service_task_analyzer.load_config') as mock_load_config, \
+            patch('service.service_task_analyzer.ExcelTaskReader') as mock_reader_class, \
+            patch('service.service_task_analyzer.TaskDataAnalyzer') as mock_analyzer_class, \
+            patch('service.service_task_analyzer.ExcelResultWriter') as mock_writer_class:
+        mock_load_config.return_value = {'PATHS': PATHS}
+        yield mock_load_config, mock_reader_class.return_value, mock_analyzer_class.return_value, mock_writer_class
 
 
 class TestTaskAnalyzer:
-    @patch('service.service_task_analyzer.load_config')
-    @patch('service.service_task_analyzer.ExcelTaskReader')
-    @patch('service.service_task_analyzer.TaskDataAnalyzer')
-    @patch('service.service_task_analyzer.ExcelResultWriter')
-    def test_run_analysis_success(self, mock_writer_class, mock_analyzer_class, mock_reader_class, mock_load_config):
-        # モックの設定
-        mock_config = {
-            'PATHS': {
-                'input_file_path': 'test_input.xlsx',
-                'template_path': 'test_template.xlsx',
-                'output_dir': 'test_output'
-            }
-        }
-        mock_load_config.return_value = mock_config
-        
-        # リーダーのモック
-        mock_reader = MagicMock()
-        mock_reader_class.return_value = mock_reader
-        mock_reader.read_workbook.return_value = (
-            [{'content': 'タスク1', 'minutes': 30}],  # tasks
-            [{'content': '日次タスク1', 'minutes': 10}],  # daily_tasks
-            [{'name': '田中', 'content': '打合せ', 'minutes': 30}],  # comm_tasks
-            [{'content': 'すべて1', 'minutes': 30}],  # all_items
-            '20240101',  # actual_start_date_str
-            '20240105'   # actual_end_date_str
+    def test_run_analysis_success(self, mocks):
+        _, mock_reader, mock_analyzer, mock_writer = mocks
+        workbook_data = WorkbookData(
+            tasks=[{'date': date(2024, 1, 1), 'content': 'タスク1', 'minutes': 30}],
+            daily_tasks=[{'date': date(2024, 1, 1), 'content': '日次タスク1', 'minutes': 10}],
+            communication_tasks=[{'date': date(2024, 1, 1), 'name': '田中', 'content': '打合せ', 'minutes': 30}],
+            all_items=[{'date': date(2024, 1, 1), 'content': 'すべて1', 'minutes': 30}],
+            first_date=date(2024, 1, 2),
+            last_date=date(2024, 1, 4),
         )
-        
-        # アナライザーのモック
-        mock_analyzer = MagicMock()
-        mock_analyzer_class.return_value = mock_analyzer
-        mock_analyzer.analyze_task_data.return_value = (
-            'clerk_tasks',
-            'non_clerk_tasks',
-            'daily_tasks_agg',
-            'communication_by_name',
-            'communication_by_content',
-            'all_items_summary'
-        )
-        
-        # ライターのモック
-        mock_writer = MagicMock()
-        mock_writer_class.return_value = mock_writer
+        mock_reader.read_workbook.return_value = workbook_data
+        mock_analyzer.analyze_task_data.return_value = ('results',)
         mock_writer.save_results.return_value = 'output_file_path.xlsx'
-        
-        # テスト実行
-        analyzer = TaskAnalyzer()
-        success, message = analyzer.run_analysis('2024-01-01', '2024-01-05')
-        
-        # 検証
-        assert success is True
-        assert '分析が完了しました' in message
-        assert 'output_file_path.xlsx' in message
-        
-        # 各メソッドが正しく呼び出されたことを検証
-        mock_reader.read_workbook.assert_called_once_with(
-            'test_input.xlsx',
-            datetime(2024, 1, 1),
-            datetime(2024, 1, 5)
-        )
-        
+
+        output_file = TaskAnalyzer().run_analysis(date(2024, 1, 1), date(2024, 1, 5))
+
+        assert output_file == 'output_file_path.xlsx'
+        mock_reader.read_workbook.assert_called_once_with('test_input.xlsx', date(2024, 1, 1), date(2024, 1, 5))
         mock_analyzer.analyze_task_data.assert_called_once_with(
-            [{'content': 'タスク1', 'minutes': 30}],
-            [{'content': '日次タスク1', 'minutes': 10}],
-            [{'name': '田中', 'content': '打合せ', 'minutes': 30}],
-            [{'content': 'すべて1', 'minutes': 30}]
-        )
-        
+            workbook_data.tasks, workbook_data.daily_tasks,
+            workbook_data.communication_tasks, workbook_data.all_items)
+        # ファイル名には実際にデータがあった最初と最後の日付を使う
         mock_writer.save_results.assert_called_once_with(
-            (
-                'clerk_tasks',
-                'non_clerk_tasks',
-                'daily_tasks_agg',
-                'communication_by_name',
-                'communication_by_content',
-                'all_items_summary'
-            ),
-            'test_template.xlsx',
-            'test_output',
-            datetime(2024, 1, 1),
-            datetime(2024, 1, 5)
-        )
+            ('results',), 'test_template.xlsx', 'test_output', date(2024, 1, 2), date(2024, 1, 4))
 
-    @patch('service.service_task_analyzer.load_config')
-    @patch('service.service_task_analyzer.ExcelTaskReader')
-    def test_run_analysis_no_data_message(self, mock_reader_class, mock_load_config):
-        """データがないときに「日付の形式」のエラーと表示されないこと"""
-        mock_load_config.return_value = {'PATHS': {'input_file_path': 'test_input.xlsx'}}
-        mock_reader_class.return_value.read_workbook.side_effect = ValueError('指定された期間内のデータがありません')
-
-        success, message = TaskAnalyzer().run_analysis('2024-01-01', '2024-01-05')
-
-        assert success is False
-        assert '指定された期間内のデータがありません' in message
-        assert '日付の形式' not in message
-
-    @patch('service.service_task_analyzer.load_config')
-    @patch('service.service_task_analyzer.ExcelTaskReader')
-    @patch('service.service_task_analyzer.TaskDataAnalyzer')
-    @patch('service.service_task_analyzer.ExcelResultWriter')
-    def test_run_analysis_reloads_config(self, _mock_writer, _mock_analyzer, mock_reader_class, mock_load_config):
+    def test_run_analysis_reloads_config(self, mocks):
         """起動後に設定ファイルを編集しても、分析時点の内容が使われること"""
-        mock_load_config.return_value = {'PATHS': {'input_file_path': 'old.xlsx'}}
+        mock_load_config, mock_reader, _, _ = mocks
+        mock_load_config.return_value = {'PATHS': {**PATHS, 'input_file_path': 'old.xlsx'}}
         analyzer = TaskAnalyzer()
-        mock_load_config.return_value = {
-            'PATHS': {'input_file_path': 'new.xlsx', 'template_path': 't.xlsx', 'output_dir': 'out'}}
-        mock_reader_class.return_value.read_workbook.return_value = ([], [], [], [], '20240101', '20240105')
+        mock_load_config.return_value = {'PATHS': {**PATHS, 'input_file_path': 'new.xlsx'}}
 
-        analyzer.run_analysis('2024-01-01', '2024-01-05')
+        analyzer.run_analysis(date(2024, 1, 1), date(2024, 1, 5))
 
-        assert mock_reader_class.return_value.read_workbook.call_args.args[0] == 'new.xlsx'
+        assert mock_reader.read_workbook.call_args.args[0] == 'new.xlsx'
 
-    @patch('service.service_task_analyzer.load_config')
-    @patch('service.service_task_analyzer.ExcelTaskReader')
-    def test_run_analysis_general_exception(self, mock_reader_class, mock_load_config):
-        # モックの設定
-        mock_config = {
-            'PATHS': {
-                'input_file_path': 'test_input.xlsx',
-                'template_path': 'test_template.xlsx',
-                'output_dir': 'test_output'
-            }
-        }
-        mock_load_config.return_value = mock_config
-        
-        # リーダーが例外を発生させるようにモックする
-        mock_reader = MagicMock()
-        mock_reader_class.return_value = mock_reader
+    def test_run_analysis_raises_error(self, mocks):
+        """エラーは呼び出し側(GUI)で表示するため、そのまま送出すること"""
+        _, mock_reader, _, _ = mocks
         mock_reader.read_workbook.side_effect = Exception('テストエラー')
-        
-        # テスト実行
-        analyzer = TaskAnalyzer()
-        success, message = analyzer.run_analysis('2024-01-01', '2024-01-05')
-        
-        # 検証
-        assert success is False
-        assert '分析中にエラーが発生しました' in message
-        assert 'テストエラー' in message
+
+        with pytest.raises(Exception, match='テストエラー'):
+            TaskAnalyzer().run_analysis(date(2024, 1, 1), date(2024, 1, 5))

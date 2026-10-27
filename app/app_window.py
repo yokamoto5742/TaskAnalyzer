@@ -1,19 +1,19 @@
-from datetime import date
-import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox
-from tkcalendar import DateEntry
 import subprocess
+import tkinter as tk
+from datetime import date
+from tkinter import messagebox, ttk
 
+from tkcalendar import DateEntry
+
+from app import __version__, constants
+from service.service_excel_reader import NoDataError
+from service.service_task_analyzer import TaskAnalyzer
 from utils.config_manager import CONFIG_PATH, load_config, save_config
 from utils.date_period import PERIOD_NAMES, get_period_range, parse_date
-from app import __version__
-from app import constants
-from service.service_task_analyzer import TaskAnalyzer
 
 
 class TaskAnalyzerGUI:
-    def __init__(self, root):
+    def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title(f'業務分析 v{__version__}')
         self.config = load_config()
@@ -25,33 +25,32 @@ class TaskAnalyzerGUI:
 
         self._setup_gui()
 
-    def _setup_gui(self):
+    def _setup_gui(self) -> None:
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         self._setup_date_frame(main_frame)
         self._setup_buttons(main_frame)
 
-    def _setup_date_frame(self, parent):
+    def _setup_date_frame(self, parent: ttk.Frame) -> None:
         date_frame = ttk.LabelFrame(parent, text="分析期間", padding="5")
         date_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
 
         saved_start_date, saved_end_date = self._load_saved_dates()
         self._setup_period_selector(date_frame, saved_start_date.year)
 
-        ttk.Label(date_frame, text="開始日").grid(row=3, column=0, padx=5, pady=5)
-        self.start_date = DateEntry(date_frame, width=12, background='darkblue',
-                                    foreground='white', borderwidth=2,
-                                    locale='ja_JP', date_pattern='yyyy/mm/dd')
-        self.start_date.grid(row=3, column=1, sticky=tk.W, padx=5, pady=5)
-        self.start_date.set_date(saved_start_date)
+        self.start_date = self._create_date_entry(date_frame, 3, "開始日", saved_start_date)
+        self.end_date = self._create_date_entry(date_frame, 4, "終了日", saved_end_date)
 
-        ttk.Label(date_frame, text="終了日:").grid(row=4, column=0, padx=5, pady=5)
-        self.end_date = DateEntry(date_frame, width=12, background='darkblue',
-                                  foreground='white', borderwidth=2,
-                                  locale='ja_JP', date_pattern='yyyy/mm/dd')
-        self.end_date.grid(row=4, column=1, sticky=tk.W, padx=5, pady=5)
-        self.end_date.set_date(saved_end_date)
+    @staticmethod
+    def _create_date_entry(parent: ttk.LabelFrame, row: int, label: str, initial_date: date) -> DateEntry:
+        ttk.Label(parent, text=label).grid(row=row, column=0, padx=5, pady=5)
+        date_entry = DateEntry(parent, width=12, background='darkblue',
+                               foreground='white', borderwidth=2,
+                               locale='ja_JP', date_pattern='yyyy/mm/dd')
+        date_entry.grid(row=row, column=1, sticky=tk.W, padx=5, pady=5)
+        date_entry.set_date(initial_date)
+        return date_entry
 
     def _load_saved_dates(self) -> tuple[date, date]:
         today = date.today().isoformat()
@@ -93,7 +92,7 @@ class TaskAnalyzerGUI:
         self.start_date.set_date(start_date)
         self.end_date.set_date(end_date)
 
-    def _setup_buttons(self, parent):
+    def _setup_buttons(self, parent: ttk.Frame) -> None:
         ttk.Button(parent, text="分析開始", command=self.start_analysis).grid(
             row=3, column=0, columnspan=2, pady=10)
         ttk.Button(parent, text="設定ファイル", command=self.open_config).grid(
@@ -101,48 +100,42 @@ class TaskAnalyzerGUI:
         ttk.Button(parent, text="閉じる", command=self.root.quit).grid(
             row=5, column=0, columnspan=2, pady=5)
 
-    def start_analysis(self):
+    def start_analysis(self) -> None:
         """GUIから分析を開始するメソッド"""
+        # get_date() は手入力がフォーカスを外れるまで反映されないため、入力欄の文字列を読む
         try:
-            # get_date() は手入力がフォーカスを外れるまで反映されないため、入力欄の文字列を読む
-            try:
-                start_date = parse_date(self.start_date.get())
-                end_date = parse_date(self.end_date.get())
-            except ValueError:
-                messagebox.showerror(constants.ERROR_TITLE, constants.INVALID_DATE_MESSAGE)
-                return
+            start_date = parse_date(self.start_date.get())
+            end_date = parse_date(self.end_date.get())
+        except ValueError:
+            messagebox.showerror(constants.ERROR_TITLE, constants.INVALID_DATE_MESSAGE)
+            return
 
-            if start_date > end_date:
-                messagebox.showerror(constants.ERROR_TITLE, constants.START_AFTER_END_MESSAGE)
-                return
+        if start_date > end_date:
+            messagebox.showerror(constants.ERROR_TITLE, constants.START_AFTER_END_MESSAGE)
+            return
 
-            # メモ帳での編集を消さないよう、保存直前に読み直す
-            self.config = load_config()
-            self.config['Analysis'].update({
-                'start_date': start_date.strftime('%Y-%m-%d'),
-                'end_date': end_date.strftime('%Y-%m-%d'),
-                'year_start_month': str(self.year_start_month_var.get())
-            })
-            save_config(self.config)
-
-            # 分析の実行
-            success, error_message = self.analyzer.run_analysis(
-                start_date.strftime('%Y-%m-%d'),
-                end_date.strftime('%Y-%m-%d')
-            )
-
-            if not success:
-                messagebox.showerror(constants.ERROR_TITLE, error_message)
-
+        try:
+            self._save_analysis_settings(start_date, end_date)
+            self.analyzer.run_analysis(start_date, end_date)
+        except NoDataError:
+            messagebox.showerror(constants.ERROR_TITLE, constants.NO_DATA_MESSAGE)
         except Exception as e:
             messagebox.showerror(constants.ERROR_TITLE,
-                                 constants.UNEXPECTED_ERROR_MESSAGE.format(error=e))
+                                 constants.ANALYSIS_ERROR_MESSAGE.format(error=e))
 
+    def _save_analysis_settings(self, start_date: date, end_date: date) -> None:
+        # メモ帳での編集を消さないよう、保存直前に読み直す
+        self.config = load_config()
+        self.config['Analysis'].update({
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'year_start_month': str(self.year_start_month_var.get())
+        })
+        save_config(self.config)
 
-    def open_config(self):
+    def open_config(self) -> None:
         try:
             subprocess.Popen(['notepad.exe', CONFIG_PATH])
         except Exception as e:
             messagebox.showerror(constants.ERROR_TITLE,
                                  constants.CONFIG_OPEN_ERROR_MESSAGE.format(error=e))
-

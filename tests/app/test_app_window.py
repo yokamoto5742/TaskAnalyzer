@@ -1,10 +1,13 @@
-import pytest
-from unittest.mock import Mock, patch
-from datetime import date
 import configparser
-from app.app_window import CONFIG_PATH, TaskAnalyzerGUI
+from datetime import date
+from unittest.mock import Mock, patch
+
+import pytest
+
 from app import __version__ as VERSION
-from app.constants import INVALID_DATE_MESSAGE
+from app.app_window import CONFIG_PATH, TaskAnalyzerGUI
+from app.constants import ANALYSIS_ERROR_MESSAGE, INVALID_DATE_MESSAGE, NO_DATA_MESSAGE
+from service.service_excel_reader import NoDataError
 
 
 @pytest.fixture
@@ -134,22 +137,39 @@ def test_apply_period(gui, mock_date_entry):
 
 def test_analysis_error(gui, mock_config, mock_analyzer, mock_date_entry, mock_messagebox):
     """分析エラー時のテスト"""
-    error_message = "テストエラー"
-    mock_analyzer.run_analysis.return_value = (False, error_message)
+    mock_analyzer.run_analysis.side_effect = Exception("テストエラー")
 
     mock_date_entry.get.side_effect = ['2025/02/01', '2025/02/28']
 
     with patch('app.app_window.save_config'):
         gui.start_analysis()
 
-    mock_analyzer.run_analysis.assert_called_once_with('2025-02-01', '2025-02-28')
-    mock_messagebox.showerror.assert_called_with("エラー", error_message)
+    mock_analyzer.run_analysis.assert_called_once_with(date(2025, 2, 1), date(2025, 2, 28))
+    mock_messagebox.showerror.assert_called_with("エラー", ANALYSIS_ERROR_MESSAGE.format(error="テストエラー"))
     assert mock_config['Analysis']['year_start_month'] == '1'
+
+
+def test_analysis_no_data(gui, mock_analyzer, mock_date_entry, mock_messagebox):
+    """期間内にデータがないとき、日付の形式のエラーではなく「データがありません」と表示すること"""
+    mock_analyzer.run_analysis.side_effect = NoDataError
+    mock_date_entry.get.side_effect = ['2025/02/01', '2025/02/28']
+
+    gui.start_analysis()
+
+    mock_messagebox.showerror.assert_called_once_with("エラー", NO_DATA_MESSAGE)
+
+
+def test_analysis_success_shows_no_error(gui, mock_analyzer, mock_date_entry, mock_messagebox):
+    mock_analyzer.run_analysis.return_value = 'output.xlsx'
+    mock_date_entry.get.side_effect = ['2025/02/01', '2025/02/28']
+
+    gui.start_analysis()
+
+    mock_messagebox.showerror.assert_not_called()
 
 
 def test_analysis_keeps_config_edited_after_start(gui, mock_analyzer, mock_date_entry, mock_messagebox):
     """起動後にメモ帳で編集した設定が、分析開始時の保存で消えないこと"""
-    mock_analyzer.run_analysis.return_value = (True, '')
     mock_date_entry.get.side_effect = ['2025/02/01', '2025/02/28']
     edited_config = configparser.ConfigParser()
     edited_config['PATHS'] = {'input_file_path': 'edited.xlsx'}

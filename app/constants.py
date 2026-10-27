@@ -1,5 +1,6 @@
 ERROR_TITLE = "エラー"
 START_AFTER_END_MESSAGE = "開始日が終了日より後の日付になっています。"
 INVALID_DATE_MESSAGE = "日付は yyyy/mm/dd の形式で入力してください。"
-UNEXPECTED_ERROR_MESSAGE = "予期せぬエラーが発生しました：\n{error}"
+NO_DATA_MESSAGE = "指定された期間内のデータがありません。"
+ANALYSIS_ERROR_MESSAGE = "分析中にエラーが発生しました：\n{error}"
 CONFIG_OPEN_ERROR_MESSAGE = "設定ファイルを開けませんでした：\n{error}"
