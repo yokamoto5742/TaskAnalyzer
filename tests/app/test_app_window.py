@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock, patch
 from datetime import datetime
 import configparser
-from app.app_window import TaskAnalyzerGUI
+from app.app_window import CONFIG_PATH, TaskAnalyzerGUI
 from app import __version__ as VERSION
 
 
@@ -35,9 +35,7 @@ def mock_config():
         'window_width': '800',
         'window_height': '600'
     }
-    config['PATHS'] = {
-        'config_path': 'test_config.ini'
-    }
+    config['PATHS'] = {}
     config['Analysis'] = {}
 
     for section in config.sections():
@@ -114,11 +112,9 @@ def test_analysis_error(gui, mock_config, mock_analyzer, mock_date_entry, mock_m
 
 def test_open_config(gui, mock_config):
     """設定ファイルを開く機能のテスト"""
-    test_config_path = 'test_config.ini'
-
     with patch('app.app_window.subprocess.Popen') as mock_popen:
         gui.open_config()
-        mock_popen.assert_called_once_with(['notepad.exe', test_config_path])
+        mock_popen.assert_called_once_with(['notepad.exe', CONFIG_PATH])
 
 
 def test_open_config_error(gui, mock_config):

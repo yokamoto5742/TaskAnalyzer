@@ -51,7 +51,6 @@ uv run python main.py
 - `input_file_path`: WILLDOリストのExcelファイルパス
 - `template_path`: 出力テンプレートのパス
 - `output_dir`: 分析結果の出力先ディレクトリ
-- `config_path`: 設定ファイルのパス
 
 ### [Analysis]セクション
 - `start_row`: 業務データの開始行

@@ -4,7 +4,7 @@ from tkinter import messagebox
 from tkcalendar import DateEntry
 import subprocess
 
-from utils.config_manager import load_config, save_config
+from utils.config_manager import CONFIG_PATH, load_config, save_config
 from app import __version__
 from service.service_task_analyzer import TaskAnalyzer
 
@@ -87,10 +87,8 @@ class TaskAnalyzerGUI:
 
 
     def open_config(self):
-        config_path = self.config.get('PATHS', 'config_path')
-
         try:
-            subprocess.Popen(['notepad.exe', config_path])
+            subprocess.Popen(['notepad.exe', CONFIG_PATH])
         except Exception as e:
             messagebox.showerror("エラー", f"設定ファイルを開けませんでした：\n{str(e)}")
 
