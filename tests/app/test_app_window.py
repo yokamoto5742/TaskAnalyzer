@@ -1,9 +1,10 @@
 import pytest
 from unittest.mock import Mock, patch
-from datetime import datetime
+from datetime import date
 import configparser
 from app.app_window import CONFIG_PATH, TaskAnalyzerGUI
 from app import __version__ as VERSION
+from app.constants import INVALID_DATE_MESSAGE
 
 
 @pytest.fixture
@@ -83,8 +84,14 @@ def gui(mock_tk, mock_config, mock_analyzer, mock_date_entry):
     with patch('app.app_window.ttk.Frame'), \
             patch('app.app_window.ttk.LabelFrame'), \
             patch('app.app_window.ttk.Label'), \
-            patch('app.app_window.ttk.Button'):
+            patch('app.app_window.ttk.Button'), \
+            patch('app.app_window.ttk.Spinbox'), \
+            patch('app.app_window.ttk.Radiobutton'), \
+            patch('app.app_window.ttk.Combobox'), \
+            patch('app.app_window.tk.StringVar'), \
+            patch('app.app_window.tk.IntVar'):
         gui = TaskAnalyzerGUI(mock_tk)
+        gui.year_start_month_var = Mock(get=Mock(return_value=1))
         yield gui
 
 
@@ -93,21 +100,61 @@ def test_init(gui, mock_tk):
     mock_tk.title.assert_called_with(f'業務分析 v{VERSION}')
 
 
+def test_init_restores_saved_dates(mock_tk, mock_config, mock_analyzer, mock_date_entry):
+    """保存済みの期間が起動時に入ること"""
+    mock_config['Analysis'] = {'start_date': '2025-04-01', 'end_date': '2025-06-30'}
+
+    with patch('app.app_window.ttk.Frame'), \
+            patch('app.app_window.ttk.LabelFrame'), \
+            patch('app.app_window.ttk.Label'), \
+            patch('app.app_window.ttk.Button'), \
+            patch('app.app_window.ttk.Spinbox'), \
+            patch('app.app_window.ttk.Radiobutton'), \
+            patch('app.app_window.ttk.Combobox'), \
+            patch('app.app_window.tk.StringVar') as mock_string_var, \
+            patch('app.app_window.tk.IntVar'):
+        TaskAnalyzerGUI(mock_tk)
+
+    assert [c.args[0] for c in mock_date_entry.set_date.call_args_list] == [
+        date(2025, 4, 1), date(2025, 6, 30)]
+    mock_string_var.assert_any_call(value='2025')
+
+
+def test_apply_period(gui, mock_date_entry):
+    """期間を選ぶと開始日と終了日が入ること"""
+    gui.period_var = Mock(get=Mock(return_value='上半期'))
+    gui.year_var = Mock(get=Mock(return_value='2025'))
+    gui.year_start_month_var = Mock(get=Mock(return_value=4))
+
+    gui._apply_period()
+
+    assert [c.args[0] for c in mock_date_entry.set_date.call_args_list[-2:]] == [
+        date(2025, 4, 1), date(2025, 9, 30)]
+
+
 def test_analysis_error(gui, mock_config, mock_analyzer, mock_date_entry, mock_messagebox):
     """分析エラー時のテスト"""
     error_message = "テストエラー"
     mock_analyzer.run_analysis.return_value = (False, error_message)
 
-    start_date = datetime(2025, 2, 1)
-    end_date = datetime(2025, 2, 28)
-
-    gui.start_date.get_date.return_value = start_date
-    gui.end_date.get_date.return_value = end_date
+    mock_date_entry.get.side_effect = ['2025/02/01', '2025/02/28']
 
     with patch('app.app_window.save_config'):
         gui.start_analysis()
 
+    mock_analyzer.run_analysis.assert_called_once_with('2025-02-01', '2025-02-28')
     mock_messagebox.showerror.assert_called_with("エラー", error_message)
+    assert mock_config['Analysis']['year_start_month'] == '1'
+
+
+def test_analysis_invalid_date(gui, mock_analyzer, mock_date_entry, mock_messagebox):
+    """yyyy/mm/dd 以外の入力はエラーになること"""
+    mock_date_entry.get.side_effect = ['2025-02-01', '2025/02/28']
+
+    gui.start_analysis()
+
+    mock_analyzer.run_analysis.assert_not_called()
+    mock_messagebox.showerror.assert_called_with("エラー", INVALID_DATE_MESSAGE)
 
 
 def test_open_config(gui, mock_config):

@@ -1,3 +1,4 @@
+from datetime import date
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
@@ -5,7 +6,9 @@ from tkcalendar import DateEntry
 import subprocess
 
 from utils.config_manager import CONFIG_PATH, load_config, save_config
+from utils.date_period import PERIOD_NAMES, get_period_range, parse_date
 from app import __version__
+from app import constants
 from service.service_task_analyzer import TaskAnalyzer
 
 
@@ -33,17 +36,62 @@ class TaskAnalyzerGUI:
         date_frame = ttk.LabelFrame(parent, text="分析期間", padding="5")
         date_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
 
-        ttk.Label(date_frame, text="開始日").grid(row=0, column=0, padx=5, pady=5)
-        self.start_date = DateEntry(date_frame, width=12, background='darkblue',
-                                    foreground='white', borderwidth=2, year=2025,
-                                    locale='ja_JP', date_pattern='yyyy/mm/dd')
-        self.start_date.grid(row=0, column=1, padx=5, pady=5)
+        saved_start_date, saved_end_date = self._load_saved_dates()
+        self._setup_period_selector(date_frame, saved_start_date.year)
 
-        ttk.Label(date_frame, text="終了日:").grid(row=1, column=0, padx=5, pady=5)
+        ttk.Label(date_frame, text="開始日").grid(row=3, column=0, padx=5, pady=5)
+        self.start_date = DateEntry(date_frame, width=12, background='darkblue',
+                                    foreground='white', borderwidth=2,
+                                    locale='ja_JP', date_pattern='yyyy/mm/dd')
+        self.start_date.grid(row=3, column=1, sticky=tk.W, padx=5, pady=5)
+        self.start_date.set_date(saved_start_date)
+
+        ttk.Label(date_frame, text="終了日:").grid(row=4, column=0, padx=5, pady=5)
         self.end_date = DateEntry(date_frame, width=12, background='darkblue',
-                                  foreground='white', borderwidth=2, year=2025,
+                                  foreground='white', borderwidth=2,
                                   locale='ja_JP', date_pattern='yyyy/mm/dd')
-        self.end_date.grid(row=1, column=1, padx=5, pady=5)
+        self.end_date.grid(row=4, column=1, sticky=tk.W, padx=5, pady=5)
+        self.end_date.set_date(saved_end_date)
+
+    def _load_saved_dates(self) -> tuple[date, date]:
+        today = date.today().isoformat()
+        start = self.config.get('Analysis', 'start_date', fallback=today)
+        end = self.config.get('Analysis', 'end_date', fallback=today)
+        return date.fromisoformat(start), date.fromisoformat(end)
+
+    def _setup_period_selector(self, date_frame: ttk.LabelFrame, initial_year: int) -> None:
+        ttk.Label(date_frame, text="年").grid(row=0, column=0, padx=5, pady=5)
+        self.year_var = tk.StringVar(value=str(initial_year))
+        ttk.Spinbox(date_frame, from_=2000, to=2100, width=6, textvariable=self.year_var,
+                    command=self._apply_period).grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+
+        self.year_start_month_var = tk.IntVar(
+            value=self.config.getint('Analysis', 'year_start_month', fallback=1))
+        year_start_frame = ttk.Frame(date_frame)
+        year_start_frame.grid(row=1, column=0, columnspan=2, sticky=tk.W)
+        for column, month in enumerate((1, 4)):
+            ttk.Radiobutton(year_start_frame, text=f"{month}月始まり", value=month,
+                            variable=self.year_start_month_var,
+                            command=self._apply_period).grid(row=0, column=column, padx=5)
+
+        ttk.Label(date_frame, text="期間").grid(row=2, column=0, padx=5, pady=5)
+        self.period_var = tk.StringVar()
+        period_combobox = ttk.Combobox(date_frame, width=10, state='readonly',
+                                       values=PERIOD_NAMES, textvariable=self.period_var)
+        period_combobox.grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
+        period_combobox.bind('<<ComboboxSelected>>', self._apply_period)
+
+    def _apply_period(self, _event: tk.Event | None = None) -> None:
+        """選んだ年・年の始まり・期間から開始日と終了日を入れる"""
+        period_name = self.period_var.get()
+        year_text = self.year_var.get()
+        if not period_name or not year_text.isdigit():
+            return
+
+        start_date, end_date = get_period_range(
+            int(year_text), period_name, self.year_start_month_var.get())
+        self.start_date.set_date(start_date)
+        self.end_date.set_date(end_date)
 
     def _setup_buttons(self, parent):
         ttk.Button(parent, text="分析開始", command=self.start_analysis).grid(
@@ -56,11 +104,16 @@ class TaskAnalyzerGUI:
     def start_analysis(self):
         """GUIから分析を開始するメソッド"""
         try:
-            start_date = self.start_date.get_date()
-            end_date = self.end_date.get_date()
+            # get_date() は手入力がフォーカスを外れるまで反映されないため、入力欄の文字列を読む
+            try:
+                start_date = parse_date(self.start_date.get())
+                end_date = parse_date(self.end_date.get())
+            except ValueError:
+                messagebox.showerror(constants.ERROR_TITLE, constants.INVALID_DATE_MESSAGE)
+                return
 
             if start_date > end_date:
-                messagebox.showerror("エラー", "開始日が終了日より後の日付になっています。")
+                messagebox.showerror(constants.ERROR_TITLE, constants.START_AFTER_END_MESSAGE)
                 return
 
             # 設定の保存
@@ -69,7 +122,8 @@ class TaskAnalyzerGUI:
 
             self.config['Analysis'].update({
                 'start_date': start_date.strftime('%Y-%m-%d'),
-                'end_date': end_date.strftime('%Y-%m-%d')
+                'end_date': end_date.strftime('%Y-%m-%d'),
+                'year_start_month': str(self.year_start_month_var.get())
             })
             save_config(self.config)
 
@@ -80,15 +134,17 @@ class TaskAnalyzerGUI:
             )
 
             if not success:
-                messagebox.showerror("エラー", error_message)
+                messagebox.showerror(constants.ERROR_TITLE, error_message)
 
         except Exception as e:
-            messagebox.showerror("エラー", f"予期せぬエラーが発生しました：\n{str(e)}")
+            messagebox.showerror(constants.ERROR_TITLE,
+                                 constants.UNEXPECTED_ERROR_MESSAGE.format(error=e))
 
 
     def open_config(self):
         try:
             subprocess.Popen(['notepad.exe', CONFIG_PATH])
         except Exception as e:
-            messagebox.showerror("エラー", f"設定ファイルを開けませんでした：\n{str(e)}")
+            messagebox.showerror(constants.ERROR_TITLE,
+                                 constants.CONFIG_OPEN_ERROR_MESSAGE.format(error=e))
 
