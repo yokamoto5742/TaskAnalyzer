@@ -96,9 +96,9 @@ class TaskAnalyzerGUI:
     def _setup_buttons(self, parent: ttk.Frame) -> None:
         ttk.Button(parent, text="分析開始", command=self.start_analysis).grid(
             row=3, column=0, columnspan=2, pady=10)
-        ttk.Button(parent, text="ファイルパス設定", command=self.open_path_settings).grid(
+        ttk.Button(parent, text="ファイルパス", command=self.open_path_settings).grid(
             row=4, column=0, columnspan=2, pady=5)
-        ttk.Button(parent, text="設定ファイル", command=self.open_config).grid(
+        ttk.Button(parent, text="設定", command=self.open_config).grid(
             row=5, column=0, columnspan=2, pady=5)
         ttk.Button(parent, text="閉じる", command=self.root.quit).grid(
             row=6, column=0, columnspan=2, pady=5)
