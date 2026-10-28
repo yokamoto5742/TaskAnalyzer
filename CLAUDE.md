@@ -24,5 +24,4 @@ uv run python build.py     # PyInstaller で exe をビルド(utils/config.ini �
 
 - 設定は `utils/config.ini` 一つだけ。`utils/config_manager.py` が、通常実行では自分と同じフォルダ、PyInstaller の exe では `sys._MEIPASS` からこのファイルを読む。
 - テストで `load_config` をモックするときは、定義元ではなく使っている側のモジュールにパッチを当てる(例: `service.service_task_analyzer.load_config`)。
-- UI メッセージを置くはずの `constants.py` はまだない。UI メッセージを追加・変更するときに作る。
 - 新しいテストは `tests/<パッケージ>/test_<モジュール>.py` に置く。`tests/` 直下にある既存のテストは、変更するときにこの配置へ移す。
