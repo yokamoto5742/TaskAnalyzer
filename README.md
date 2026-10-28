@@ -7,7 +7,6 @@
 - 年と期間(月・四半期・上半期・下半期・一年)を選ぶだけで、分析期間を自動入力
 - 業務・デイリータスク・コミュニケーションを、クラーク業務などの観点から集計
 - 「ファイルパス」ボタンで、WILLDOリスト・出力書式・出力先フォルダを画面から設定
-- 分析完了後、結果のExcelを自動で開く
 
 ## 動作要件
 - Windows OS
@@ -77,7 +76,6 @@ uv run python main.py
 ```
 TaskAnalyzer/
 ├── main.py                        # エントリーポイント
-├── build.py                       # PyInstaller で exe をビルド
 ├── app/
 │   ├── __init__.py                # バージョン情報(__version__)
 │   ├── app_window.py              # メイン画面(TaskAnalyzerGUI)
