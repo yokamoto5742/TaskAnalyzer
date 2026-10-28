@@ -6,6 +6,7 @@ from tkinter import messagebox, ttk
 from tkcalendar import DateEntry
 
 from app import __version__, constants
+from app.path_settings_dialog import PathSettingsDialog
 from service.service_excel_reader import NoDataError
 from service.service_task_analyzer import TaskAnalyzer
 from utils.config_manager import CONFIG_PATH, load_config, save_config
@@ -95,10 +96,12 @@ class TaskAnalyzerGUI:
     def _setup_buttons(self, parent: ttk.Frame) -> None:
         ttk.Button(parent, text="分析開始", command=self.start_analysis).grid(
             row=3, column=0, columnspan=2, pady=10)
-        ttk.Button(parent, text="設定ファイル", command=self.open_config).grid(
+        ttk.Button(parent, text="ファイルパス設定", command=self.open_path_settings).grid(
             row=4, column=0, columnspan=2, pady=5)
-        ttk.Button(parent, text="閉じる", command=self.root.quit).grid(
+        ttk.Button(parent, text="設定ファイル", command=self.open_config).grid(
             row=5, column=0, columnspan=2, pady=5)
+        ttk.Button(parent, text="閉じる", command=self.root.quit).grid(
+            row=6, column=0, columnspan=2, pady=5)
 
     def start_analysis(self) -> None:
         """GUIから分析を開始するメソッド"""
@@ -132,6 +135,9 @@ class TaskAnalyzerGUI:
             'year_start_month': str(self.year_start_month_var.get())
         })
         save_config(self.config)
+
+    def open_path_settings(self) -> None:
+        PathSettingsDialog(self.root)
 
     def open_config(self) -> None:
         try:
